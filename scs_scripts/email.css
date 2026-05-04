@@ -1,0 +1,91 @@
+body {
+	font-family: Calibri, Arial;
+    font-size: 12px;
+	background-color: White;
+	color: Black;
+    margin: 0px;
+}
+
+.large  {font-size: 14px;}
+.standard  {font-size: 12px;}
+.small {font-size: 10px;}
+.nobr {white-space: nowrap;}
+
+.center {text-align: center;}
+.right  {text-align: right;}
+.left   {text-align: left;}
+
+table.border {
+	width: 100%;
+	border: 1px #033598 solid;
+	border-collapse: collapse;
+}
+table.border th {
+	border: 1px #033598 solid;
+	padding: 2px;
+	background: #dddddd;
+	vertical-align: bottom;
+	text-align: center;
+}
+table.border td {
+	border: 1px #033598 solid;
+	padding: 2px;
+	vertical-align: top;
+}
+
+table.noborder {
+	width: 100%;
+	border: 0px;
+}
+table.noborder th {
+	padding: 2px;
+	vertical-align: bottom;
+	text-align: center;
+}
+table.noborder td {
+	padding: 2px;
+	vertical-align: top;
+}
+
+table.cart {
+	width: 100%;
+	border: 0px;
+	border-collapse: collapse;
+	border-bottom: 2px solid #777;
+	font-family: "Open Sans",sans-serif;
+}
+table.cart th {
+	padding: 2px;
+	vertical-align: bottom;
+	text-align: center;
+	border-bottom: 2px solid #999;
+}
+table.cart td {
+	padding: 2px;
+	vertical-align: top;
+	border-bottom: 2px solid #999;
+}
+
+.checkout_caption {
+  font-family: "Open Sans",sans-serif;
+  font-size: 120%;
+  align: left;
+  padding-top: 10px;
+}
+.checkout_entry {
+	width: 100%;
+	font-family: "Open Sans",sans-serif;
+	border: 1px #c00000 solid;
+    border-radius: 5px;
+}
+.checkout_left {
+	width: 30%;
+    padding: 5px;
+	display: inline-block;
+}
+.checkout_right {
+	width: 70%;
+    padding: 5px;
+	display: inline-block;
+    float: right;
+}

@@ -1,0 +1,106 @@
+#campaign_div {
+	color: #000;
+	background-color: #fff;
+	background-image: none;
+    padding: 0px 0px 0px 0px;
+    width: 100%;
+}
+#campaign_div h1 {
+	font-family: "Oswald", sans-serif !important;
+	color: #e41e38;
+	font-size: 26px;
+}
+#campaign_div h2 {
+	font-family: "Oswald", sans-serif !important;
+	color: #e41e38;
+	font-size: 20px !important;
+    font-weight: bold;
+}
+.campaign_content {
+    width: 100%;
+    max-width: 980px;
+    margin: 0 auto;
+	font-family: "Open Sans", sans-serif;
+}
+.campaign_body {
+	padding-top: 0px;
+	padding-bottom: 20px;
+}
+.campaign_content_input {
+    width: 220px;
+    height: 43px;
+    background-color: #212121;
+    border: none;
+    box-sizing: border-box;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    color: #f2f3f5;
+    padding: 0 12px;
+    -webkit-box-shadow: 0px 0px 8px 0px rgba(255,255,255,0.5);
+    -moz-box-shadow: 0px 0px 8px 0px rgba(255,255,255,0.5);
+    box-shadow: 0px 0px 8px 0px rgba(255,255,255,0.5);
+    margin: 5px 0 15px;
+}
+.campaign_form_div {
+	background-image: url("../scs_images/main-bg.png");
+	width: 100%;
+    height: 676px;
+    padding-bottom: 0.67em;
+    padding-top: 0.67em;
+}
+.campaign_form_content {
+    width: 100%;
+    max-width: 980px;
+    margin: 0 auto;
+    font-size: 15px;
+	color: #fff;
+}
+
+.campaign_form_title_div {
+	display: block;
+	font-family: 'Rajdhani',sans-serif !important;
+    height: 140px;
+    padding-top: 60px;
+}
+.campaign_form_disclaimer {
+	font-size: 75%;
+    padding-top: 0.67em;
+    padding-bottom: 0.67em;
+}
+.campaign_form_button {
+	font-family: arial;
+    font-size: 18px;
+	width: 220px;
+    height: 43px;
+}
+.campaign_form_disclaimer {
+	font-family: 'Open Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 22px;
+    padding-top: 25px;
+    padding-bottom: 25px;
+    width: 450px;
+}
+.campaign_email_welcome {
+	font-family: 'Oswald',sans-serif;
+    font-size: 20px;
+    font-weight: normal;
+    margin-top: 20px;
+    margin-bottom: 15px;
+    color: #cfcfd1;
+}
+.campaign_email_disclaimer {
+	font-size: 11px;
+    font-weight: normal;
+    padding-top: 25px;
+    padding-bottom: 25px;
+    width: 450px;
+}
+.campaign_email_button {
+	font-family: arial;
+    font-size: 18px;
+	width: 220px;
+    height: 43px;
+    margin-left: 20px;
+}

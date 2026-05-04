@@ -1,0 +1,29 @@
+# System / hosting folders 
+.quarantine 
+.tmb 
+ishmael
+
+# Server directories 
+cgi-bin/ 
+
+# Project-specific folders 
+kitting-solutions/ 
+momentum/ 
+
+# WordPress uploads 
+wp-content/uploads/ 
+
+# Logs 
+error_log 
+*.log 
+
+# Config File 
+wp-config.php 
+
+# For FTP Access Only
+overview_documents
+
+# Large Files
+*.sql
+*.avi
+*.fla

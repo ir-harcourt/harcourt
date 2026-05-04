@@ -1,0 +1,8 @@
+#scs_menu { display: inline-block; width: 100%; font-family: Rajdhani !important; font-size: 20px; font-weight: 600; color: #fff; background-color: #000; padding-top: 5px;  line-height: 100px; }
+.scs_menu_left { float:left; padding-left: 20px; text-transform: uppercase; }
+.scs_menu_right { float:right; padding-right: 20px; }
+.scs_menu_button { background: linear-gradient(0deg, rgba(115,14,28,1) 0%, rgba(229,28,56,1) 100%); border-radius: 4px; padding: 10px; font-size: 20px; font-weight: 600; color: #fff;}
+#scscpq_search_text { border-radius: 4px; box-sizing: border-box; border: 0px; padding: 10px; font-size: 20px; font-weight: 400; }
+#scs_menu a { text-decoration: none; color: #fff; }
+#scs_menu a:hover { text-decoration: none; color: #aaa; }
+#scs_menu a:active{ color: #fff; }

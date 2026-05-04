@@ -1,0 +1,815 @@
+@charset "utf-8";
+/* CSS Document */
+
+tr.bottom a {
+	text-decoration:none;
+	background-color:transparent;
+	font-family:Calibri, Arial;
+	color:#999;
+	font-size:10px;
+	text-shadow:none;
+	background:none;
+}
+
+tr.bottom a:link {
+	background-color:transparent;
+	text-shadow:none;
+	background:none;
+}
+
+tr.bottom a:hover {
+	color:#000;
+}
+
+tr.bottom a:active {
+	color: #333;
+}
+
+td {
+	font-family: Calibri, Arial;
+}
+td {
+	color: #FFF;
+}
+
+#home_btn {
+	font-family: Calibri, Arial;
+	font-size: 12px;
+	font-style: normal;
+	font-weight: normal;
+	font-variant: normal;
+	color: #FFF;
+	text-decoration: none;
+	background-attachment: fixed;
+	background-image: url(/images/Untitled-1.jpg);
+	background-repeat: no-repeat;
+	text-align: left;
+	border-top-style: none;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+}
+a:link {
+	font-family: Calibri, Arial;
+	font-size: 12px;
+	font-style: normal;
+	font-weight: normal;
+	color: #FFF;
+	text-decoration: none;
+	background-image: url(/images/home2.jpg);
+	background-repeat: no-repeat;
+	border-top-style: none;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+}
+a:link {
+	font-family: Calibri, Arial;
+	font-size: 12px;
+	font-style: normal;
+	color: #FFF;
+	text-decoration: none;
+	background-image: url(/images/home2.jpg);
+}
+body table tr td {
+	font-family: Verdana, Geneva, sans-serif;
+	font-size: 12px;
+	color: #FFF;
+}
+.al td a #Image7 {
+	text-decoration: none;
+	background-color: #FFF;
+	border-top-style: none;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+}
+.header {
+	font-family: Calibri, Arial;
+	font-size: 12px;
+	font-style: normal;
+	font-weight: normal;
+	font-variant: normal;
+	color: #000;
+	text-decoration: none;
+	float: left;
+	margin-top: 5px;
+	margin-right: 0px;
+	margin-bottom: 5px;
+	margin-left: 0px;
+	border-top-style: none;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+}
+.home {
+	background-color: transparent;
+	text-align: right;
+	vertical-align: baseline;
+	padding-top: 0px;
+	padding-right: 0px;
+	padding-bottom: 0px;
+	padding-left: 0px;
+	border-top-style: none;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+	margin: 0px 2px 0px 0px;
+	float:left;
+}
+
+.menu a {
+	background-color: #CCC;
+	text-align: right;
+	vertical-align: baseline;
+	padding-top: 5px;
+	padding-right: 10px;
+	padding-bottom: 3px;
+	padding-left: 0px;
+	border-top-style: none;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+	margin: 0px 2px 0px 0px;
+	float:left;
+	font-family:Calibri, Arial;
+	font-size:12px;
+	color:#FFF;
+	text-decoration:none;
+}
+
+.menu a:link {
+	background-color: #CCC;
+	text-align: right;
+	vertical-align: baseline;
+	padding-top: 5px;
+	padding-right: 10px;
+	padding-bottom: 3px;
+	padding-left: 0px;
+	border-top-style: none;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+	margin: 0px 2px 0px 0px;
+	float:left;
+}
+
+.menu a:hover {
+	background-color: #E43145;
+}
+
+.menu a:active {
+	background-color:#666;
+}
+	
+.menuhome a {
+	background-color: #999;
+	background-image:url(/images/fade%20background.jpg);
+	text-align: right;
+	vertical-align: baseline;
+	padding-top: 5px;
+	padding-right: 10px;
+	padding-bottom: 3px;
+	padding-left: 0px;
+	border-top-style: none;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+	margin: 0px 2px 0px 0px;
+	float:left;
+	font-family:Calibri, Arial;
+	font-size:12px;
+	color:#FFF;
+	text-decoration:none;
+}
+
+.menuhome a:link {
+	background-color: #999;
+	text-align: right;
+	vertical-align: baseline;
+	padding-top: 5px;
+	padding-right: 10px;
+	padding-bottom: 3px;
+	padding-left: 0px;
+	border-top-style: none;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+	margin: 0px 2px 0px 0px;
+	float:left;
+}
+
+.menuhome a:hover {
+	background-color: #666;
+	background-image:none;
+}
+
+.menuhome a:active {
+	background-color: #333;
+}
+.homeflash {
+	background-color: #999;
+	float: left;
+	height: 300px;
+	width: 700px;
+	border:none;
+}
+
+.sidebar {
+	height:400px;
+	width:295px;
+	font-family: Calibri, Arial;
+	font-size: 14px;
+	font-style: normal;
+	font-weight: normal;
+	color: #000;
+	text-decoration: none;
+	background-color:none;
+	border:none;
+	float:right;
+}
+
+.bottombar {
+	font-family: Calibri, Arial;
+	font-size: 24px;
+	font-style: normal;
+	font-weight:bold;
+	color: #333;
+	text-decoration: none;
+	background-color:none;
+	width:700px;
+	height:100px;
+}
+.index {
+	font-family: Calibri, Arial;
+	font-size: 16px;
+	font-weight: bold;
+	height: 25px;
+}
+#pageframe {
+	font-family: Calibri, Arial;
+	background-image: url(/images/pagebackground.gif);
+	width: 1024px;
+	height:600px;
+	border-top-style: none;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+	position: absolute;
+	font-size: 18px;
+	list-style-type: circle;
+}
+
+#thankyoupageframe {
+	font-family: Calibri, Arial;
+	background-image:url(/images/thankyou%20background.jpg);
+	height: 600px;
+	width: 1024px;
+	border-top-style: none;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+	position: absolute;
+}
+
+#yourrequest {
+	font-family: Calibri, Arial;
+	font-size: 18px;
+	color: #666;
+	text-align: left;
+	height: 240px;
+	width: 625px;
+	margin-left: 100px;
+	margin-top: 10px;
+}
+
+#yourrequesthello {
+	font-family: Calibri, Arial;
+	font-size: 18px;
+	color: #666;
+	text-align: left;
+	height: 70px;
+	width: 625px;
+	margin-left: 100px;
+	margin-top: 10px;
+}
+
+
+
+#founded {
+	font-family: Calibri, Arial;
+	font-size: 18px;
+	color: #333;
+	text-align: left;
+	width: 625px;
+	margin-left: 100px;
+	margin-top: 10px;
+}
+
+#userform {
+	font-family: Calibri, Arial;
+	height: 218px;
+	width: 378px;
+	margin-top: 10px;
+	margin-left: 100px;
+	background-image: url(/images/formbackground.gif);
+	padding-top: 30px;
+	padding-bottom: 20px;
+	padding-left: 15px;
+}
+
+
+#userformquality {
+	font-family: Calibri, Arial;
+	height: 218px;
+	width: 333px;
+	margin-top: 10px;
+	margin-left: 100px;
+	background-image: url(/images/formbackground.gif);
+	padding-top: 30px;
+	padding-bottom: 20px;
+	padding-left: 30px;
+	padding-right: 30px;
+}
+
+
+#thankyou {
+	font-family: Calibri, Arial;
+	font-size: 36px;
+	font-weight: bold;
+	height: 50px;
+	width: 500px;
+	margin-top: 100px;
+	margin-left: 100px;
+	margin-bottom: 0px;
+}
+
+#welcome {
+	font-family: Calibri, Arial;
+	font-size: 36px;
+	font-weight: bold;
+	height: 50px;
+	width: 500px;
+	margin-top: 50px;
+	margin-left: 100px;
+	margin-bottom: 0px;
+}
+
+#firstentry {
+	font-family: Calibri, Arial;
+	font-size: 16px;;
+	margin-top: 10px;
+	margin-left: 0px;
+	width: 305px;
+	text-align: right;
+	height: 27px;
+}
+#firstentrybox {
+	font-family: Calibri, Arial;
+	height: 25px;
+	width: 200px;
+	float: right;
+	margin-left: 10px;
+	background-image: url(/images/entrybackground.jpg);
+}
+
+#firstentry2 {
+	font-family: Calibri, Arial;
+	font-size: 16px;
+	margin-top: 7px;
+	margin-left: 0px;
+	width: 305px;
+	text-align: right;
+	height: 27px;
+}
+
+.submitbutton {
+	height: 31px;
+	width: 140px;
+	margin-left: 110px;
+	margin-top: 18px;
+	cursor:pointer;
+	font-size:18px;
+	background-repeat: no-repeat;
+}
+
+.hellosubmitbutton {
+	height: 31px;
+	width: 140px;
+	margin-left: 110px;
+	margin-top: 28px;
+	cursor:pointer;
+	font-size:18px;
+	background-repeat: no-repeat;
+}
+
+
+
+
+.submittext a{
+	height: 40px;
+	width: 80px;
+	cursor:pointer;
+}
+
+.input2 {
+	background-image:url(/images/entrybackground.jpg);
+}
+
+.disclaimertext {
+	font-family: Calibri, Arial;
+	font-size: 12px;
+	height: 50px;
+	width: 600px;
+	margin-left: 100px;
+	color: #999;
+}
+.disclaimer {
+	font-size: 14px;
+	font-weight: bold;
+	color: #666;
+	height: 20px;
+	width: 100px;
+	margin-left: 100px;
+	margin-top: 105px;
+}
+#toaccess {
+	font-family: Calibri, Arial;
+	font-size: 18px;
+	color: #666;
+	text-align: left;
+	height: 30px;
+	width: 625px;
+	margin-left: 100px;
+	margin-top: 0px;
+}
+
+#userformwelcome {
+	font-family: Calibri, Arial;
+	height: 93px;
+	width: 378px;
+	margin-top: 80px;
+	margin-left: 215px;
+	background-image: url(/images/formbackground2.gif);
+	padding-top: 20px;
+	padding-bottom: 20px;
+	padding-left: 15px;
+}
+
+.disclaimertext a {
+	font-family: Calibri, Arial;
+	font-size: 12px;
+	font-weight:bold;
+	height: 50px;
+	width: 600px;
+	color: #999;
+	text-decoration:none;
+}
+
+.disclaimertext a:hover {
+	font-family: Calibri, Arial;
+	font-size: 12px;
+	font-weight:bold;
+	height: 50px;
+	width: 600px;
+	color: #000;
+}
+
+#hello {
+	font-family: Calibri, Arial;
+	font-size: 36px;
+	font-weight: bold;
+	height: 50px;
+	width: 500px;
+	margin-top: 80px;
+	margin-left: 100px;
+	margin-bottom: 0px;
+}
+
+#hellopg {
+	font-family: Calibri, Arial;
+	font-size: 36px;
+	font-weight: bold;
+	height: 50px;
+	width: 500px;
+	margin-top: 50px;
+	margin-left: 100px;
+	margin-bottom: 0px;
+}
+
+#aboutus {
+	font-family: Calibri, Arial;
+	font-size: 36px;
+	font-weight: bold;
+	height: 50px;
+	width: 500px;
+	margin-top: 50px;
+	margin-left: 100px;
+	margin-bottom: 0px;
+}
+#headquaters {
+	height: 165px;
+	width: 476px;
+	margin-left: 100px;
+	position: absolute;
+}
+#pageframeaboutus {
+	font-family: Calibri, Arial;
+	background-image: url(/images/backgroundabout.gif);
+	height: 600px;
+	width: 1024px;
+	border-top-style: none;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+	position: absolute;
+}
+
+#qualitystatement {
+	font-family: Calibri, Arial;
+	font-size: 20px;
+	font-weight:bold;
+	color: #666;
+	text-align: left;
+}
+
+#statementtext {
+	font-family: Calibri, Arial;
+	font-size: 15px;
+	color: #666;
+	text-align: left;
+	margin-top: 10px;
+}
+
+#links ul a {
+	font-family: Calibri, Arial;
+	font-weight:bold;
+	color: #666;
+	list-style-position: inside;
+	list-style-type: disc;
+	font-size:18px;
+	text-decoration:none;
+}
+
+#links ul a:hover {
+	color: #333;
+	text-decoration:none;
+}
+
+#links {
+	margin-left:115px;
+}
+
+#pageframecontact {
+	font-family: Calibri, Arial;
+	background-image: url(/images/contactback.gif);
+	height: 600px;
+	width: 1024px;
+	border-top-style: none;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+	position: absolute;
+}
+#americas {
+	font-family: Calibri, Arial;
+	font-size: 14px;
+	font-style: normal;
+	color: #666;
+	text-decoration: none;
+	position: absolute;
+	height: 150px;
+	width: 450px;
+	left: 130px;
+	top: 100px;
+	
+}
+
+#americas a {
+	font-family: Calibri, Arial;
+	font-size: 14px;
+	font-style: normal;
+	color: #000;
+	text-decoration: none;
+	
+}
+
+#americas a:hover {
+	font-family: Calibri, Arial;
+	font-style: normal;
+	color: #F00;
+	text-decoration: none;
+}
+
+#africaasia {
+	font-family: Calibri, Arial;
+	font-size: 14px;
+	color: #666;
+	text-decoration: none;
+	position: absolute;
+	left: 130px;
+	top: 275px;
+	height: 150px;
+	width: 450px;
+}
+
+#africaasia a {
+	font-family: Calibri, Arial;
+	font-size: 14px;
+	font-style: normal;
+	color: #000;
+	text-decoration: none;
+	
+}
+
+#africaasia a:hover {
+	font-family: Calibri, Arial;
+	font-size: 14px;
+	font-style: normal;
+	color: #F00;
+	text-decoration: none;
+}
+
+#namerica {
+	position: absolute;
+	width: 175px;
+	left: 175px;
+	top: 10px;
+}
+
+#europe {
+	position: absolute;
+	width: 200px;
+	height: 1px;
+	left: 175px;
+	top: 10px;
+}
+
+#flagus {
+	background-image:
+}
+#homeflash {
+	height: 300px;
+	width: 700px;
+	background-color: #666;
+}
+#homeheader {
+	font-family: Calibri, Arial;
+	height: 250px;
+	width: 275px;
+	position: absolute;
+	left: 725px;
+	top: 25px;
+}
+#homewelcome {
+	font-size: 36px;
+	font-weight: bold;
+	color: #999;
+	height: 40px;
+	width: 150px;
+	position: absolute;
+	left: 750px;
+	top: 15px;
+}
+#welcometext {
+	font-family: Calibri, Arial;
+	font-size: 18px;
+	height: 150px;
+	width: 625px;
+	position: absolute;
+	left: 15px;
+	top: 50px;
+}
+.contacts {
+	margin-top: 3px;
+}
+#pageframehome {
+	font-family: Calibri, Arial;
+	height: 315px;
+	width: 1024px;
+	border-top-style: none;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+	position: absolute;
+}
+#quicklinks {
+	font-family: Calibri, Arial;
+	font-weight: normal;
+	font-size:14px;
+	color: #666;
+	height: 30px;
+	width: 240px;
+	position: absolute;
+	left: 755px;
+	top: 50px;
+}
+
+ul.sb_menu li a, ul.ex_menu li a { 
+     color:#5f5f5f; 
+     text-decoration:none; 
+     margin-left:-16px; 
+     padding-left:16px;
+}
+ul.sb_menu li a:hover { color:#000; background:url(images/li_a.gif) no-repeat left center;}
+ul.sb_menu li a:hover { text-decoration:underline;}
+ul.ex_menu li a:hover { text-decoration:none;}
+
+.producttable {
+     padding:50px 0px 0px 5px;
+}
+
+.hometext {
+	font-family: Calibri, Arial;
+	font-size: 16px;
+	font-weight: normal;
+}
+.hometext2 {
+	font-size: 16px;
+	font-style: italic;
+	font-weight: bold;
+	padding-top: 10px;
+}
+#profile {
+	font-family: Calibri, Arial;
+	font-size: 35px;
+        font-weight:bold;
+}
+
+#ecopageframe {
+	height: 600px;
+	width: 1024px;
+}
+#ecoflash {
+	position: absolute;
+	left: 85px;
+	top: 150px;
+	width: 857px;
+	height: 555px;
+}
+
+#map {
+	font-family: Calibri, Arial;
+	font-size: 16px;
+	font-weight: normal;
+	height: 30px;
+	width: 200px;
+	position: absolute;
+	left: 625px;
+	top: 75px;
+	text-align: right;
+}
+#map1 {
+	position: absolute;
+	left: 840px;
+	top: 74px;
+}
+
+#apply {
+	font-family: Calibri, Arial;
+	font-size: 16px;
+	font-weight: normal;
+	height: 30px;
+	width: 200px;
+	position: absolute;
+	left: 625px;
+	top: 130px;
+	text-align: right;
+}
+#business {
+	font-family: Calibri, Arial;
+	font-size: 16px;
+	font-weight: normal;
+	height: 30px;
+	width: 200px;
+	position: absolute;
+	left: 625px;
+	top: 185px;
+	text-align: right;
+}
+#uk1 {
+	position: absolute;
+	left: 880px;
+	top: 74px;
+}
+
+#map2 {
+	position: absolute;
+	left: 840px;
+	top: 129px;
+}
+#map3 {
+	position: absolute;
+	left: 840px;
+	top: 186px;
+}
+#uk2 {
+	position: absolute;
+	left: 880px;
+	top: 129px;
+}
+#uk3 {
+	position: absolute;
+	left: 880px;
+	top: 186px;
+}
