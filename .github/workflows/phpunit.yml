@@ -24,4 +24,4 @@ jobs:
 
       - name: Run PHPUnit
         working-directory: testing
-        run: vendor/bin/phpunit
+        run: php vendor/bin/phpunit
