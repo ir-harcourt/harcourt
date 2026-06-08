@@ -28,3 +28,9 @@ overview_documents
 *.sql
 *.avi
 *.fla
+
+# Claude AI
+.claude/
+
+# Images Subcategory
+images_subcategory/

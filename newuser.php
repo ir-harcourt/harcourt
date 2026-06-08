@@ -141,6 +141,7 @@ class remote_access_class {
 		$timestamp=hexdec($database->remote->data->unlock_code);
 		$this->expiry=date("r",$timestamp);
         $this->unlock_code=trim($_POST['unlock_code']);
+        $error=null;
         switch (TRUE) {
           case (!strlen($this->unlock_code)):
           	$error="Cannot be blank";
