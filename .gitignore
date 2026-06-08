@@ -38,3 +38,8 @@ composer/
 composer7/
 composer8/
 
+# Claude AI
+.claude/
+
+# Images Subcategory
+images_subcategory/
