@@ -1,8 +1,10 @@
 # System / hosting folders 
 .quarantine 
 .tmb 
+.ftpquota
 ishmael
 Ishmael.Salvador
+courtney
 
 # Server directories 
 cgi-bin/ 
@@ -23,8 +25,16 @@ wp-config.php
 
 # For FTP Access Only
 overview_documents
+images_subcategory
+scs_scripts
 
 # Large Files
 *.sql
 *.avi
 *.fla
+
+#Composer
+composer/
+composer7/
+composer8/
+
