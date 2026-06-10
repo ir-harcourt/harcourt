@@ -1,9 +1,16 @@
 <?php
 class MicrosoftAuth {
-    private $clientId     = 'REDACTED_CLIENT_ID';
-    private $tenantId     = 'REDACTED_TENANT_ID';
-    private $clientSecret = 'REDACTED_CLIENT_SECRET';
-    private $scopes       = ['openid', 'profile', 'email', 'User.Read'];
+    private $clientId;
+    private $tenantId;
+    private $clientSecret;
+    private $scopes = ['openid', 'profile', 'email', 'User.Read'];
+
+    public function __construct() {
+        $env = parse_ini_file($_SERVER['DOCUMENT_ROOT'] . '/.env');
+        $this->clientId     = $env['MICROSOFT_CLIENT_ID'];
+        $this->tenantId     = $env['MICROSOFT_TENANT_ID'];
+        $this->clientSecret = $env['MICROSOFT_CLIENT_SECRET'];
+    }
 
     private function redirectUri() {
         $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';

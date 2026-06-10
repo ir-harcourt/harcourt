@@ -390,7 +390,7 @@ class remote_access_class {
     function html_microsoft_button() {
         $results = array();
         $results[] = "<div style='margin: 20px 0; text-align: left;'>";
-        $results[] = "<div style='margin-bottom: 10px; font-weight: bold;'>Or sign in with your Microsoft account:</div>";
+        $results[] = "<div style='margin-bottom: 10px; font-weight: bold;'>Sign in with your Microsoft account:</div>";
         $results[] = "<a href='/oauth/init.php' style='display:inline-flex;align-items:center;background:#2f2f2f;color:#fff;padding:10px 20px;text-decoration:none;border-radius:4px;font-family:\"Segoe UI\",sans-serif;font-size:15px;'>";
         $results[] = "<svg xmlns='http://www.w3.org/2000/svg' width='21' height='21' viewBox='0 0 21 21' style='margin-right:12px;'><rect x='1' y='1' width='9' height='9' fill='#f25022'/><rect x='11' y='1' width='9' height='9' fill='#7fba00'/><rect x='1' y='11' width='9' height='9' fill='#00a4ef'/><rect x='11' y='11' width='9' height='9' fill='#ffb900'/></svg>";
         $results[] = "Sign in with Microsoft";
