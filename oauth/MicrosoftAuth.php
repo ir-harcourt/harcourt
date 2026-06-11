@@ -23,12 +23,19 @@ class MicrosoftAuth {
 
     private function provider() {
         require_once $this->composerPath() . '/vendor/autoload.php';
-        return new \Greew\OAuth2\Client\Provider\Azure([
-            'clientId'     => $this->clientId,
-            'clientSecret' => $this->clientSecret,
-            'redirectUri'  => $this->redirectUri(),
-            'tenantId'     => $this->tenantId,
-        ]);
+        $profile_fields = ['companyName', 'streetAddress', 'city', 'state', 'postalCode'];
+        $resource_owner_url = 'https://graph.microsoft.com/v1.0/me?$select=' . implode(',', $profile_fields);
+        return new \Greew\OAuth2\Client\Provider\Azure(
+            [
+                'clientId'     => $this->clientId,
+                'clientSecret' => $this->clientSecret,
+                'redirectUri'  => $this->redirectUri(),
+                'tenantId'     => $this->tenantId,
+            ],
+            [],
+            'https://login.microsoftonline.com',
+            $resource_owner_url
+        );
     }
 
     public function init() {
@@ -63,11 +70,24 @@ class MicrosoftAuth {
             $payload = json_decode(base64_decode(str_replace(['-', '_'], ['+', '/'], $parts[1])), true);
 
             $email = $payload['unique_name'] ?? $payload['upn'] ?? $payload['email'] ?? '';
+
+            $profile = [];
+            try {
+                $profile = $provider->getResourceOwner($token)->toArray();
+            } catch (\Exception $e) {
+                error_log('[MicrosoftAuth] Profile lookup failed: ' . $e->getMessage());
+            }
+
             $_SESSION['microsoft_oauth_result'] = [
                 'email'        => strtolower(trim($email)),
                 'name_first'   => $payload['given_name']  ?? '',
                 'name_last'    => $payload['family_name'] ?? '',
                 'display_name' => $payload['name']        ?? '',
+                'company_name' => $profile['companyName']   ?? '',
+                'address'      => $profile['streetAddress'] ?? '',
+                'city'         => $profile['city']          ?? '',
+                'state'        => $profile['state']         ?? '',
+                'zip'          => $profile['postalCode']    ?? '',
             ];
         } catch (\Exception $e) {
             error_log('[MicrosoftAuth] ' . $e->getMessage());

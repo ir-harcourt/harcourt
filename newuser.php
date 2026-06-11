@@ -24,6 +24,8 @@ class remote_access_class {
     var $trace=array();
     function scs_table_version() {
     	$results=array();
+        $results['06/12/2026']="Microsoft OAuth: populate domain/company/address from profile on registration";
+        $results['06/11/2026']="Microsoft OAuth: check remote table by email first";
         $results['06/10/2026']="Add Microsoft OAuth2 registration";
         $results['10/01/2025']="Add harcourt_remote_addr()";
         $results['05/06/2025']="Update harcourt_profile";
@@ -310,25 +312,17 @@ class remote_access_class {
         $profile_obj->name_last  = $oauth['name_last'];
         $database->profile->load($profile_obj);
 
-        // Check domain registration (populates $database->user->data)
+        // Populates $database->user->data (by domain) and $database->remote->meta (by email)
         $database->remote->access($email, '');
         $domain_user_found  = $database->user->meta->rows;
         $domain_user_status = $database->user->data->status;
 
-        if ($domain_user_found && $domain_user_status == "Active") {
+        if ($database->remote->meta->rows) {
+            // Email already has remote access — grant access directly, skip domain/status checks
+            $this->grant_microsoft_remote_access($email, TRUE);
+        } elseif ($domain_user_found && $domain_user_status == "Active") {
             // Company is registered and active — grant remote access, skip IP check
-            $menu->cookie($email);
-            $database->remote->read($email);
-            $is_update = $database->remote->meta->rows;
-            $database->remote->data->email = $email;
-            $database->remote->expiry();
-            $database->remote->token();
-            // Unlock code set to far future so IP-based token prompt is never triggered
-            $database->remote->data->unlock_code = dechex(strtotime('+1 year'));
-            $database->remote->update($is_update);
-            $menu->cookie($database->remote->data->token, 'remote');
-            $menu->login_update(1);
-            print $this->json_remote_message();
+            $this->grant_microsoft_remote_access($email, FALSE);
         } elseif ($domain_user_found && $domain_user_status == "Pending") {
             print $this->html_pending();
         } else {
@@ -341,14 +335,35 @@ class remote_access_class {
         if (fn_development_server()) $menu->copyright();
     }
 
+    function grant_microsoft_remote_access($email, $is_update) {
+        global $database, $menu;
+        $this->trace[]=__FUNCTION__;
+        $menu->cookie($email);
+        $database->remote->data->email = $email;
+        $database->remote->expiry();
+        $database->remote->token();
+        // Unlock code set to far future so IP-based token prompt is never triggered
+        $database->remote->data->unlock_code = dechex(strtotime('+1 year'));
+        $database->remote->update($is_update);
+        $menu->cookie($database->remote->data->token, 'remote');
+        $menu->login_update(1);
+        print $this->json_remote_message();
+    }
+
     function process_microsoft_register($email, $oauth) {
         global $database, $forms, $menu;
         $this->trace[]=__FUNCTION__;
 
         $menu->cookie($email);
+        list(, $domain) = explode("@", $email, 2);
         $database->user->data = new user_data_class();
         $database->user->data->ip           = harcourt_remote_addr();
-        $database->user->data->company_name = $oauth['display_name'];
+        $database->user->data->domain       = $domain;
+        $database->user->data->company_name = $oauth['company_name'] ?: $oauth['display_name'];
+        $database->user->data->address      = $oauth['address'];
+        $database->user->data->city         = $oauth['city'];
+        $database->user->data->state        = $oauth['state'];
+        $database->user->data->zip          = $oauth['zip'];
         $database->user->data->last_login   = strtotime("now");
         $database->user->data->recaptcha_score = 1.0;
         $database->user->update(FALSE);
