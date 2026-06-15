@@ -429,7 +429,8 @@ class remote_access_class {
 	    $results[]="<h2 class='page-subtitle editable h2-login'>" . implode(" ",$text) . "</h2>";
         $results[]="<div id=profile_register>";
         $text=array();
-        $text[]="Please complete the fields below and click \"Submit\" to become an approved Harcourt &reg; user. Once you have completed the form, our team will be in touch to confirm your access.";
+        $text[]="If your company email is already registered with Harcourt &reg;, click \"Sign in with Microsoft\" below for instant access.";
+        $text[]="Otherwise, please complete the form below and click \"Submit\" to become an approved Harcourt &reg; user. Once you have completed the form, our team will be in touch to confirm your access.";
         $text[]="Only email address is required if your company is already registered and you are working remotely.";
         $text[]="Thank you!";
 	    $results[]="<p class='company_registered'>" . implode("<br>", $text) . "</p>";
