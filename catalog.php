@@ -654,6 +654,15 @@ class catalog_output_class {
     function output_summary($summary_list) {
 	    global $database, $forms, $menu;
     	$this->trace[]=__FUNCTION__;
+        $blocked_categories=array();
+        if ($_SESSION['user']->id && !isset($_SESSION['user']->bot_code)) {
+            $query="SELECT category_id FROM user_category WHERE user_id=" . fn_escape($_SESSION['user']->id,FALSE);
+            $database->temp->query($query);
+            while ($database->temp->fetch=$database->temp->fetch_array()) {
+                $blocked_categories[]=intval($database->temp->fetch['category_id']);
+            }
+            $database->temp->free_result();
+        }
         $url_query=array();
         $url_query['lang']=strtolower($_SESSION['user']->language_code);
         if ($this->request['debug']) $url_query['debug']=1;
@@ -663,7 +672,9 @@ class catalog_output_class {
         $url_query['subcategory_id']=0;
         if ($this->new_date) $url_query['new_date']=1;
 		foreach ($summary_list as $category_id => $subcategory_list) {
+			$blocked=in_array($category_id,$blocked_categories);
 			$results[]="<a class=anchor id=category{$category_id}></a><h2>" . $this->category[$category_id]->name . "</h2>";
+			$results[]="<div class='catalog_category_wrapper'>";
         	$results[]="<div class=catalog_subcategory_list>";
             $results[]="<ul>";
 
@@ -698,6 +709,12 @@ class catalog_output_class {
             }
             $results[]="</ul>";
 			$results[]="</div>";
+            if ($blocked) {
+                $results[]="<div class='catalog_category_overlay'>";
+                $results[]="<div class='catalog_category_overlay_message'>Integrator Agreement Required for Access. " . fn_href("Contact Us","/contact_us.php") . " for more information.</div>";
+                $results[]="</div>";
+            }
+            $results[]="</div>";
         }
 		$results[]="</div>";
 		print implode("\n",$results);
@@ -1364,6 +1381,36 @@ EOT;
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+.catalog_category_wrapper {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+.catalog_category_overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+.catalog_category_overlay_message {
+    text-align: center;
+    padding: 20px 30px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.85);
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.catalog_category_overlay_message a {
+    color: #e51c38;
 }
 </style>
 EOT;

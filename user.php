@@ -113,6 +113,15 @@ switch ($forms->report['action']) {
 	if (sizeof($forms->error)) break;
     if ($_POST['ipstack']) $database->user->ipstack();
     $forms->message[]="Record maintained";
+    $database->temp->query("DELETE FROM user_category WHERE user_id=" . fn_escape($database->user->data->id,FALSE));
+    $database->category->query("SELECT id FROM category WHERE active=1");
+    while ($database->category->fetch=$database->category->fetch_array()) {
+        $database->category->fetch();
+        if ($_POST["user_category_" . $database->category->data->id]) {
+            $database->temp->query("INSERT INTO user_category (user_id, category_id) VALUES (" . fn_escape($database->user->data->id,FALSE) . "," . fn_escape($database->category->data->id,FALSE) . ")");
+        }
+    }
+    $database->category->free_result();
     if ($forms->report['return_url']) {
     	if ($database->user->data->status == "Active") {
         	$data=array();
@@ -185,6 +194,7 @@ switch (TRUE) {
 	$menu->tabs=new jquery_tab_class();
 	$forms->constant->parse=parse_object($database->user->data->ipstack_json);
     $menu->tabs->item("Info",tab_info());
+    $menu->tabs->item("Category Access",tab_category());
     $menu->tabs->item("IPStack",$forms->constant->parse);
     $menu->tabs->output();
     $buttons=array();
@@ -408,6 +418,31 @@ global $database, $forms, $menu;
         $results[]="<td>" . date("m/d/Y h:i A",$database->user->data->last_login) . "</td>";
         $results[]="</tr>";
     }
+    $results[]="</table>";
+    return $results;
+}
+function tab_category() {
+    global $database, $forms;
+    $blocked_categories=array();
+    if ($database->user->data->id) {
+        $database->temp->query("SELECT category_id FROM user_category WHERE user_id=" . fn_escape($database->user->data->id,FALSE));
+        while ($database->temp->fetch=$database->temp->fetch_array()) {
+            $blocked_categories[]=$database->temp->fetch['category_id'];
+        }
+        $database->temp->free_result();
+    }
+    $results=array();
+    $results[]="<table class='standard noborder'>";
+    $results[]="<tr><td colspan=2>Check to restrict access to a category (Integrator Agreement required)</td></tr>";
+    $database->category->query("SELECT * FROM category WHERE active=1 ORDER BY sort_order,name");
+    while ($database->category->fetch=$database->category->fetch_array()) {
+        $database->category->fetch();
+        $checked=in_array($database->category->data->id,$blocked_categories) ? 1 : 0;
+        $results[]="<tr>";
+        $results[]="<td><label style='display:flex;align-items:center;gap:8px;cursor:pointer;'>" . $forms->checkbox("user_category_" . $database->category->data->id,1,$checked) . $database->category->data->name . "</label></td>";
+        $results[]="</tr>";
+    }
+    $database->category->free_result();
     $results[]="</table>";
     return $results;
 }
