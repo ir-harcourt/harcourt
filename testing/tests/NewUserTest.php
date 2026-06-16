@@ -541,6 +541,8 @@ class NewUserTest extends TestCase
         $this->assertSame('user@harcourt.co', $database->remote->data->email);
         $this->assertSame(dechex(strtotime('+1 year')), $database->remote->data->unlock_code);
         $this->assertStringContainsString('Congratulations, you now have access!', $output);
+        $this->assertStringContainsString('action: "initial"', $output);
+        $this->assertStringContainsString('scscpq_url', $output);
     }
 
     public function test_process_microsoft_register_returns_error_on_update_failure(): void

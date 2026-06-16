@@ -348,6 +348,27 @@ class remote_access_class {
         $menu->cookie($database->remote->data->token, 'remote');
         $menu->login_update(1);
         print $this->json_remote_message();
+        // session is now active/catalog-enabled; refresh header menu (Request Access / Catalog)
+        // without using scscpq_event(), which would blank #scscpq_page with a spinner
+        print '<script>'
+            . 'if (typeof jQuery === "function" && typeof scscpq_url !== "undefined") {'
+            . 'jQuery.ajax({'
+            . 'url: scscpq_url,'
+            . 'data: {action: "initial", page: "", document: "", token: sessionStorage["scscpq_token"], url: window.location.href},'
+            . 'type: "post",'
+            . 'dataType: "json",'
+            . 'success: function(response) {'
+            . 'for (var key in response) {'
+            . 'var value = response[key];'
+            . 'if (key === "token") { sessionStorage["scscpq_token"] = value; continue; }'
+            . 'if (key.substring(0,6) !== "scscpq") continue;'
+            . 'if (key === "scscpq_document" || key === "scscpq_page" || key === "scscpq_link" || key === "scscpq_iframe") continue;'
+            . 'if (value == 0) { jQuery("." + key).hide(); } else { jQuery("." + key).show(); if (value != 1) jQuery("." + key).html(value); }'
+            . '}'
+            . '}'
+            . '});'
+            . '}'
+            . '</script>';
     }
 
     function process_microsoft_register($email, $oauth) {
