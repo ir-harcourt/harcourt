@@ -44,6 +44,7 @@ if (!class_exists('user_data_class')) {
         public $catalog       = 0;
         public $bot_id        = null;
         public $language_code = 'EN';
+        public $domain        = '';
     }
 }
 
@@ -127,7 +128,7 @@ class StubUser {
     public $meta;
     public function __construct() {
         $this->data = new user_data_class();
-        $this->meta = (object)['error' => 0];
+        $this->meta = (object)['error' => 0, 'rows' => 0];
     }
     public function update($flag) {}
 }
@@ -207,8 +208,9 @@ class NewUserTest extends TestCase
         $forms    = new StubForms();
         $menu     = new StubMenu();
 
-        $_SESSION = ['user' => new user_data_class(), 'remote' => 0];
+        $_SESSION = ['user' => new user_data_class(), 'remote' => 0, 'impersonate' => 0];
         $_POST    = [];
+        $_SERVER['HTTP_USER_AGENT'] = 'PHPUnit';
 
         // Instantiate without running the constructor so each test starts clean.
         $ref       = new ReflectionClass(remote_access_class::class);
@@ -382,5 +384,189 @@ class NewUserTest extends TestCase
 
         $this->assertObjectHasAttribute('scscpq_content', $this->sut->response->html);
         $this->assertStringContainsStringIgnoringCase('Congratulations', $this->sut->response->html->scscpq_content);
+    }
+
+    // ── Microsoft OAuth ───────────────────────────────────────────────────
+
+    private function oauthData(array $overrides = []): array
+    {
+        return array_merge([
+            'email'        => 'user@example.com',
+            'name_first'   => 'Test',
+            'name_last'    => 'User',
+            'display_name' => 'Test User',
+            'company_name' => '',
+            'address'      => '',
+            'city'         => '',
+            'state'        => '',
+            'zip'          => '',
+        ], $overrides);
+    }
+
+    public function test_html_microsoft_button_links_to_oauth_init(): void
+    {
+        $html = $this->sut->html_microsoft_button();
+
+        $this->assertStringContainsString('Sign in with Microsoft', $html);
+        $this->assertStringContainsString("href='/oauth/init.php'", $html);
+    }
+
+    public function test_html_register_includes_microsoft_button(): void
+    {
+        $this->sut->recaptcha = new recaptcha_class("newuser", 1, array("local" => TRUE));
+
+        $html = $this->sut->html_register();
+
+        $this->assertStringContainsString('Sign in with Microsoft', $html);
+    }
+
+    public function test_html_remote_includes_microsoft_button(): void
+    {
+        $html = $this->sut->html_remote(FALSE);
+
+        $this->assertStringContainsString('Sign in with Microsoft', $html);
+    }
+
+    public function test_html_dispatches_to_oauth_handler_when_result_set(): void
+    {
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => '']);
+
+        ob_start();
+        $this->sut->html();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsStringIgnoringCase('did not provide an email', $output);
+    }
+
+    public function test_process_microsoft_oauth_shows_error_and_register_form(): void
+    {
+        $_SESSION['microsoft_oauth_error'] = 'Something went wrong';
+
+        ob_start();
+        $this->sut->process_microsoft_oauth();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Something went wrong', $output);
+        $this->assertStringContainsString('Sign in with Microsoft', $output);
+        $this->assertArrayNotHasKey('microsoft_oauth_error', $_SESSION);
+    }
+
+    public function test_process_microsoft_oauth_shows_error_when_email_missing(): void
+    {
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => '']);
+
+        ob_start();
+        $this->sut->process_microsoft_oauth();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsStringIgnoringCase('did not provide an email', $output);
+        $this->assertArrayNotHasKey('microsoft_oauth_result', $_SESSION);
+    }
+
+    public function test_process_microsoft_oauth_grants_access_when_remote_already_registered(): void
+    {
+        global $database;
+        $database->remote->meta->rows = 1;
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'known@harcourt.co']);
+
+        ob_start();
+        $this->sut->process_microsoft_oauth();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Congratulations, you now have access!', $output);
+        $this->assertSame('known@harcourt.co', $database->remote->data->email);
+        $this->assertSame(dechex(strtotime('+1 year')), $database->remote->data->unlock_code);
+    }
+
+    public function test_process_microsoft_oauth_grants_access_when_domain_active(): void
+    {
+        global $database;
+        $database->user->meta->rows  = 1;
+        $database->user->data->status = 'Active';
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'new.person@harcourt.co']);
+
+        ob_start();
+        $this->sut->process_microsoft_oauth();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Congratulations, you now have access!', $output);
+        $this->assertSame('new.person@harcourt.co', $database->remote->data->email);
+    }
+
+    public function test_process_microsoft_oauth_shows_pending_when_domain_pending(): void
+    {
+        global $database;
+        $database->user->meta->rows   = 1;
+        $database->user->data->status = 'Pending';
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'pending.person@example.com']);
+
+        ob_start();
+        $this->sut->process_microsoft_oauth();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsStringIgnoringCase('pending approval', $output);
+    }
+
+    public function test_process_microsoft_oauth_registers_new_user_when_no_domain_match(): void
+    {
+        global $database;
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData([
+            'email'        => 'new.user@example.com',
+            'display_name' => 'New User',
+            'company_name' => 'Acme Inc',
+            'address'      => '123 Main St',
+            'city'         => 'Springfield',
+            'state'        => 'IL',
+            'zip'          => '62704',
+        ]);
+
+        ob_start();
+        $this->sut->process_microsoft_oauth();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Congratulations, your access request has been submitted!', $output);
+        $this->assertSame('example.com', $database->user->data->domain);
+        $this->assertSame('Acme Inc', $database->user->data->company_name);
+        $this->assertSame($database->user->data, $_SESSION['user']);
+    }
+
+    public function test_grant_microsoft_remote_access_sets_year_long_unlock_code(): void
+    {
+        global $database;
+
+        ob_start();
+        $this->sut->grant_microsoft_remote_access('user@harcourt.co', TRUE);
+        $output = ob_get_clean();
+
+        $this->assertSame('user@harcourt.co', $database->remote->data->email);
+        $this->assertSame(dechex(strtotime('+1 year')), $database->remote->data->unlock_code);
+        $this->assertStringContainsString('Congratulations, you now have access!', $output);
+        $this->assertStringContainsString('action: "initial"', $output);
+        $this->assertStringContainsString('scscpq_url', $output);
+    }
+
+    public function test_process_microsoft_register_returns_error_on_update_failure(): void
+    {
+        global $database;
+        $database->user->meta->error = 1;
+
+        $result = $this->sut->process_microsoft_register('fail@example.com', $this->oauthData(['email' => 'fail@example.com']));
+
+        $this->assertStringContainsStringIgnoringCase('Internal error', $result);
+    }
+
+    public function test_process_microsoft_register_populates_domain_from_email(): void
+    {
+        global $database;
+
+        $result = $this->sut->process_microsoft_register('jane@acme.org', $this->oauthData([
+            'email'        => 'jane@acme.org',
+            'display_name' => 'Jane Doe',
+            'company_name' => 'Acme Org',
+        ]));
+
+        $this->assertSame('acme.org', $database->user->data->domain);
+        $this->assertSame('Acme Org', $database->user->data->company_name);
+        $this->assertStringContainsString('access request has been submitted', $result);
     }
 }

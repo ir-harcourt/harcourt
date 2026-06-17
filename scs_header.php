@@ -13,7 +13,7 @@ development	http://localhost:8085
 production	https://harcourt.co
 */
 
-if ($_SERVER['SERVER_ADMIN'] != "host@suburbancomputer.com") {
+if (($_SERVER['SERVER_ADMIN'] ?? '') != "host@suburbancomputer.com") {
 	ini_set("display_errors", "1");
 	ini_set("error_log", $_SERVER['DOCUMENT_ROOT'] . "/error.log");
 }
@@ -31,9 +31,11 @@ set_include_path(
     PATH_SEPARATOR . $_SERVER['DOCUMENT_ROOT'] . "/composer" .
     PATH_SEPARATOR . $_SERVER['DOCUMENT_ROOT'] . "/scsps");
 
+$_scs_https = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['SERVER_PORT'] ?? 80) == 443;
 ini_set('session.cookie_samesite', 'Lax');
-ini_set('session.cookie_secure', 'true');
+ini_set('session.cookie_secure', $_scs_https ? '1' : '0');
 ini_set('session.cookie_httponly', 'true');
+unset($_scs_https);
 
 // standard library
 require_once "database_mysqli.php";
