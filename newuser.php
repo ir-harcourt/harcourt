@@ -24,6 +24,7 @@ class remote_access_class {
     var $trace=array();
     function scs_table_version() {
     	$results=array();
+        $results['06/18/2026']="Add Google OAuth2 registration";
         $results['06/12/2026']="Microsoft OAuth: populate domain/company/address from profile on registration";
         $results['06/11/2026']="Microsoft OAuth: check remote table by email first";
         $results['06/10/2026']="Add Microsoft OAuth2 registration";
@@ -222,7 +223,12 @@ class remote_access_class {
         $this->trace[]=__FUNCTION__;
 
         if (isset($_SESSION['microsoft_oauth_result']) || isset($_SESSION['microsoft_oauth_error'])) {
-            $this->process_microsoft_oauth();
+            $this->process_oauth('Microsoft');
+            return;
+        }
+
+        if (isset($_SESSION['google_oauth_result']) || isset($_SESSION['google_oauth_error'])) {
+            $this->process_oauth('Google');
             return;
         }
 
@@ -270,8 +276,16 @@ class remote_access_class {
         if (fn_development_server()) $menu->copyright();
     }
     function process_microsoft_oauth() {
+        $this->process_oauth('Microsoft');
+    }
+
+    function process_oauth($provider) {
         global $database, $forms, $menu;
         $this->trace[]=__FUNCTION__;
+
+        $provider_lower = strtolower($provider);
+        $error_key  = $provider_lower . '_oauth_error';
+        $result_key = $provider_lower . '_oauth_result';
 
         $this->recaptcha=new recaptcha_class("newuser",1,array("local"=>TRUE));
         if (fn_development_server()) $menu->head();
@@ -281,9 +295,9 @@ class remote_access_class {
         print $forms->open(array(), array("onsubmit"=>"return false;"));
         print "<div id=scscpq_content>";
 
-        if (isset($_SESSION['microsoft_oauth_error'])) {
-            $error = $_SESSION['microsoft_oauth_error'];
-            unset($_SESSION['microsoft_oauth_error']);
+        if (isset($_SESSION[$error_key])) {
+            $error = $_SESSION[$error_key];
+            unset($_SESSION[$error_key]);
             print "<p style='color:red;'>" . htmlspecialchars($error) . "</p>";
             print $this->html_register();
             print "</div>";
@@ -292,12 +306,12 @@ class remote_access_class {
             return;
         }
 
-        $oauth = $_SESSION['microsoft_oauth_result'];
-        unset($_SESSION['microsoft_oauth_result']);
+        $oauth = $_SESSION[$result_key];
+        unset($_SESSION[$result_key]);
 
         $email = $oauth['email'];
         if (!strlen($email)) {
-            print "<p style='color:red;'>Microsoft did not provide an email address. Please use the registration form.</p>";
+            print "<p style='color:red;'>" . $provider . " did not provide an email address. Please use the registration form.</p>";
             print $this->html_register();
             print "</div>";
             print $forms->close();
@@ -305,29 +319,24 @@ class remote_access_class {
             return;
         }
 
-        // Set profile name from Microsoft
         $profile_obj = new stdClass();
         $profile_obj->email      = $email;
         $profile_obj->name_first = $oauth['name_first'];
         $profile_obj->name_last  = $oauth['name_last'];
         $database->profile->load($profile_obj);
 
-        // Populates $database->user->data (by domain) and $database->remote->meta (by email)
         $database->remote->access($email, '');
         $domain_user_found  = $database->user->meta->rows;
         $domain_user_status = $database->user->data->status;
 
         if ($database->remote->meta->rows) {
-            // Email already has remote access — grant access directly, skip domain/status checks
-            $this->grant_microsoft_remote_access($email, TRUE);
+            $this->grant_oauth_remote_access($email, TRUE);
         } elseif ($domain_user_found && $domain_user_status == "Active") {
-            // Company is registered and active — grant remote access, skip IP check
-            $this->grant_microsoft_remote_access($email, FALSE);
+            $this->grant_oauth_remote_access($email, FALSE);
         } elseif ($domain_user_found && $domain_user_status == "Pending") {
             print $this->html_pending();
         } else {
-            // New user — auto-register using Microsoft profile, goes to approval process
-            print $this->process_microsoft_register($email, $oauth);
+            print $this->process_oauth_register($email, $oauth, $provider);
         }
 
         print "</div>";
@@ -336,6 +345,10 @@ class remote_access_class {
     }
 
     function grant_microsoft_remote_access($email, $is_update) {
+        $this->grant_oauth_remote_access($email, $is_update);
+    }
+
+    function grant_oauth_remote_access($email, $is_update) {
         global $database, $menu;
         $this->trace[]=__FUNCTION__;
         $menu->cookie($email);
@@ -372,6 +385,10 @@ class remote_access_class {
     }
 
     function process_microsoft_register($email, $oauth) {
+        return $this->process_oauth_register($email, $oauth, 'Microsoft');
+    }
+
+    function process_oauth_register($email, $oauth, $provider = 'Microsoft') {
         global $database, $forms, $menu;
         $this->trace[]=__FUNCTION__;
 
@@ -394,7 +411,6 @@ class remote_access_class {
         $_SESSION['user'] = $database->user->data;
         $database->profile->cookie();
 
-        // Create long-lived remote record so future logins bypass IP check
         $database->remote->data->email = $email;
         $database->remote->expiry();
         $database->remote->token();
@@ -407,7 +423,7 @@ class remote_access_class {
         $comment = array();
         $comment[] = "Email: " . $email;
         $comment[] = "Name: " . $oauth['display_name'];
-        $comment[] = "Microsoft OAuth registration";
+        $comment[] = $provider . " OAuth registration";
         $options['comment'] = implode("<br>", $comment);
         $database->log->update("user:signup", $options);
 
@@ -425,12 +441,30 @@ class remote_access_class {
 
     function html_microsoft_button() {
         $results = array();
-        $results[] = "<div style='margin: 20px 0; text-align: left;'>";
-        $results[] = "<div style='margin-bottom: 10px; font-weight: bold;'>Sign in with your Microsoft account:</div>";
         $results[] = "<a href='/oauth/init.php' style='display:inline-flex;align-items:center;background:#2f2f2f;color:#fff;padding:10px 20px;text-decoration:none;border-radius:4px;font-family:\"Segoe UI\",sans-serif;font-size:15px;'>";
         $results[] = "<svg xmlns='http://www.w3.org/2000/svg' width='21' height='21' viewBox='0 0 21 21' style='margin-right:12px;'><rect x='1' y='1' width='9' height='9' fill='#f25022'/><rect x='11' y='1' width='9' height='9' fill='#7fba00'/><rect x='1' y='11' width='9' height='9' fill='#00a4ef'/><rect x='11' y='11' width='9' height='9' fill='#ffb900'/></svg>";
         $results[] = "Sign in with Microsoft";
         $results[] = "</a>";
+        return implode("", $results);
+    }
+
+    function html_google_button() {
+        $results = array();
+        $results[] = "<a href='/oauth/google_init.php' style='display:inline-flex;align-items:center;background:#fff;color:#3c4043;padding:10px 20px;text-decoration:none;border-radius:4px;font-family:\"Roboto\",\"Segoe UI\",sans-serif;font-size:15px;border:1px solid #dadce0;'>";
+        $results[] = "<svg xmlns='http://www.w3.org/2000/svg' width='21' height='21' viewBox='0 0 48 48' style='margin-right:12px;'><path fill='#EA4335' d='M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z'/><path fill='#4285F4' d='M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z'/><path fill='#34A853' d='M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z'/><path fill='#FBBC05' d='M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z'/></svg>";
+        $results[] = "Sign in with Google";
+        $results[] = "</a>";
+        return implode("", $results);
+    }
+
+    function html_oauth_buttons() {
+        $results = array();
+        $results[] = "<div style='margin: 20px 0; text-align: left;'>";
+        $results[] = "<div style='margin-bottom: 10px; font-weight: bold;'>Sign in with your work account:</div>";
+        $results[] = "<div style='display:flex;gap:12px;flex-wrap:wrap;'>";
+        $results[] = $this->html_microsoft_button();
+        $results[] = $this->html_google_button();
+        $results[] = "</div>";
         $results[] = "</div>";
         return implode("", $results);
     }
@@ -450,12 +484,12 @@ class remote_access_class {
 	    $results[]="<h2 class='page-subtitle editable h2-login'>" . implode(" ",$text) . "</h2>";
         $results[]="<div id=profile_register>";
         $text=array();
-        $text[]="If your company email is already registered with Harcourt &reg;, click \"Sign in with Microsoft\" below for instant access.";
+        $text[]="If your company email is already registered with Harcourt &reg;, click \"Sign in with Microsoft\" or \"Sign in with Google\" below for instant access.";
         $text[]="Otherwise, please complete the form below and click \"Submit\" to become an approved Harcourt &reg; user. Once you have completed the form, our team will be in touch to confirm your access.";
         $text[]="Only email address is required if your company is already registered and you are working remotely.";
         $text[]="Thank you!";
 	    $results[]="<p class='company_registered'>" . implode("<br>", $text) . "</p>";
-        $results[]=$this->html_microsoft_button();
+        $results[]=$this->html_oauth_buttons();
         $results[]="<hr style='margin: 20px 0; border: 0; border-top: 1px solid #ccc;'>";
         $results[]="<p style='font-weight:bold;'>Or complete the form below:</p>";
         $results[]=$database->profile->enter(array("register"=>TRUE));
@@ -498,7 +532,7 @@ class remote_access_class {
         $text[]=$forms->button("Resend Access Token",array("onclick"=>"fn_newuser('token');","class"=>"red-button"));
         $text[]="<span id=unlock_code_message></span>";
         $results[]="<div>" . implode(" ",$text) . "</div>";
-        $results[]=$this->html_microsoft_button();
+        $results[]=$this->html_oauth_buttons();
         return implode("",$results);
 	}
     function css() {
