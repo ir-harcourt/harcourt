@@ -75,16 +75,8 @@ require_once "classes/portalcontent.php";
 require_once "classes/portalcategory.php";
 require_once "classes/portalitem.php";
 
-switch (TRUE) {
-  case (fn_development_server()):
-	$database->connect("localhost","demo","suburban","harcourt");
-    break;
-  case ($_SERVER['HTTP_HOST'] == "stage.harcourt.co"):
-	$database->connect("localhost","harcou6_wp_kggm0","Va#6rmW@36fQ9LrG","harcou6_wp_bllqe");
-    break;
-  default:
-	$database->connect("localhost","harcou6_wp_kggm0","Va#6rmW@36fQ9LrG","harcou6_wp_bllqe");
-}
+$env = parse_ini_file($_SERVER['DOCUMENT_ROOT'] . '/.env');
+$database->connect($env['DB_HOST'], $env['DB_USER'], $env['DB_PASS'], $env['DB_NAME']);
 $database->set_charset("utf8mb4");
 
 $database->registry=new registry_class();
