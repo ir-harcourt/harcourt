@@ -569,4 +569,165 @@ class NewUserTest extends TestCase
         $this->assertSame('Acme Org', $database->user->data->company_name);
         $this->assertStringContainsString('access request has been submitted', $result);
     }
+
+    // ── Google OAuth ─────────────────────────────────────────────────────
+
+    public function test_html_google_button_links_to_google_init(): void
+    {
+        $html = $this->sut->html_google_button();
+
+        $this->assertStringContainsString('Sign in with Google', $html);
+        $this->assertStringContainsString("href='/oauth/google_init.php'", $html);
+    }
+
+    public function test_html_oauth_buttons_includes_both_providers(): void
+    {
+        $html = $this->sut->html_oauth_buttons();
+
+        $this->assertStringContainsString('Sign in with Microsoft', $html);
+        $this->assertStringContainsString('Sign in with Google', $html);
+    }
+
+    public function test_html_register_includes_google_button(): void
+    {
+        $this->sut->recaptcha = new recaptcha_class("newuser", 1, array("local" => TRUE));
+
+        $html = $this->sut->html_register();
+
+        $this->assertStringContainsString('Sign in with Google', $html);
+    }
+
+    public function test_html_remote_includes_google_button(): void
+    {
+        $html = $this->sut->html_remote(FALSE);
+
+        $this->assertStringContainsString('Sign in with Google', $html);
+    }
+
+    public function test_html_dispatches_to_google_oauth_handler_when_result_set(): void
+    {
+        $_SESSION['google_oauth_result'] = $this->oauthData(['email' => '']);
+
+        ob_start();
+        $this->sut->html();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsStringIgnoringCase('did not provide an email', $output);
+    }
+
+    public function test_google_oauth_shows_error_and_register_form(): void
+    {
+        $_SESSION['google_oauth_error'] = 'Google auth failed';
+
+        ob_start();
+        $this->sut->process_oauth('Google');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Google auth failed', $output);
+        $this->assertStringContainsString('Sign in with Google', $output);
+        $this->assertArrayNotHasKey('google_oauth_error', $_SESSION);
+    }
+
+    public function test_google_oauth_shows_error_when_email_missing(): void
+    {
+        $_SESSION['google_oauth_result'] = $this->oauthData(['email' => '']);
+
+        ob_start();
+        $this->sut->process_oauth('Google');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsStringIgnoringCase('Google did not provide an email', $output);
+        $this->assertArrayNotHasKey('google_oauth_result', $_SESSION);
+    }
+
+    public function test_google_oauth_grants_access_when_remote_already_registered(): void
+    {
+        global $database;
+        $database->remote->meta->rows = 1;
+        $_SESSION['google_oauth_result'] = $this->oauthData(['email' => 'known@harcourt.co']);
+
+        ob_start();
+        $this->sut->process_oauth('Google');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Congratulations, you now have access!', $output);
+        $this->assertSame('known@harcourt.co', $database->remote->data->email);
+        $this->assertSame(dechex(strtotime('+1 year')), $database->remote->data->unlock_code);
+    }
+
+    public function test_google_oauth_grants_access_when_domain_active(): void
+    {
+        global $database;
+        $database->user->meta->rows  = 1;
+        $database->user->data->status = 'Active';
+        $_SESSION['google_oauth_result'] = $this->oauthData(['email' => 'new.person@harcourt.co']);
+
+        ob_start();
+        $this->sut->process_oauth('Google');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Congratulations, you now have access!', $output);
+        $this->assertSame('new.person@harcourt.co', $database->remote->data->email);
+    }
+
+    public function test_google_oauth_shows_pending_when_domain_pending(): void
+    {
+        global $database;
+        $database->user->meta->rows   = 1;
+        $database->user->data->status = 'Pending';
+        $_SESSION['google_oauth_result'] = $this->oauthData(['email' => 'pending.person@example.com']);
+
+        ob_start();
+        $this->sut->process_oauth('Google');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsStringIgnoringCase('pending approval', $output);
+    }
+
+    public function test_google_oauth_registers_new_user_when_no_domain_match(): void
+    {
+        global $database;
+        $_SESSION['google_oauth_result'] = $this->oauthData([
+            'email'        => 'new.user@gmail.com',
+            'display_name' => 'New User',
+            'company_name' => 'Acme Inc',
+            'address'      => '123 Main St',
+            'city'         => 'Springfield',
+            'state'        => 'IL',
+            'zip'          => '62704',
+        ]);
+
+        ob_start();
+        $this->sut->process_oauth('Google');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Congratulations, your access request has been submitted!', $output);
+        $this->assertSame('gmail.com', $database->user->data->domain);
+        $this->assertSame('Acme Inc', $database->user->data->company_name);
+        $this->assertSame($database->user->data, $_SESSION['user']);
+    }
+
+    public function test_google_oauth_register_logs_google_provider(): void
+    {
+        global $database;
+
+        $result = $this->sut->process_oauth_register('jane@acme.org', $this->oauthData([
+            'email'        => 'jane@acme.org',
+            'display_name' => 'Jane Doe',
+            'company_name' => 'Acme Org',
+        ]), 'Google');
+
+        $this->assertSame('acme.org', $database->user->data->domain);
+        $this->assertStringContainsString('access request has been submitted', $result);
+    }
+
+    public function test_google_oauth_register_returns_error_on_update_failure(): void
+    {
+        global $database;
+        $database->user->meta->error = 1;
+
+        $result = $this->sut->process_oauth_register('fail@example.com', $this->oauthData(['email' => 'fail@example.com']), 'Google');
+
+        $this->assertStringContainsStringIgnoringCase('Internal error', $result);
+    }
 }
