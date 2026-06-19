@@ -534,9 +534,7 @@ class NewUserTest extends TestCase
     {
         global $database;
 
-        ob_start();
-        $this->sut->grant_microsoft_remote_access('user@harcourt.co', TRUE);
-        $output = ob_get_clean();
+        $output = $this->sut->grant_microsoft_remote_access('user@harcourt.co', TRUE);
 
         $this->assertSame('user@harcourt.co', $database->remote->data->email);
         $this->assertSame(dechex(strtotime('+1 year')), $database->remote->data->unlock_code);
