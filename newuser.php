@@ -288,64 +288,59 @@ class remote_access_class {
         $result_key = $provider_lower . '_oauth_result';
 
         $this->recaptcha=new recaptcha_class("newuser",1,array("local"=>TRUE));
+
+        // Phase 1: process result and set cookies/session before any output
+        $body = '';
+
+        if (isset($_SESSION[$error_key])) {
+            $error = $_SESSION[$error_key];
+            unset($_SESSION[$error_key]);
+            $body = "<p style='color:red;'>" . htmlspecialchars($error) . "</p>" . $this->html_register();
+        } else {
+            $oauth = $_SESSION[$result_key];
+            unset($_SESSION[$result_key]);
+
+            $email = $oauth['email'];
+            if (!strlen($email)) {
+                $body = "<p style='color:red;'>" . $provider . " did not provide an email address. Please use the registration form.</p>" . $this->html_register();
+            } else {
+                $profile_obj = new stdClass();
+                $profile_obj->email      = $email;
+                $profile_obj->name_first = $oauth['name_first'];
+                $profile_obj->name_last  = $oauth['name_last'];
+                $database->profile->load($profile_obj);
+
+                $database->remote->access($email, '');
+                $domain_user_found  = $database->user->meta->rows;
+                $domain_user_status = $database->user->data->status;
+
+                if ($database->remote->meta->rows) {
+                    $body = $this->grant_oauth_remote_access($email, TRUE);
+                } elseif ($domain_user_found && $domain_user_status == "Active") {
+                    $body = $this->grant_oauth_remote_access($email, FALSE);
+                } elseif ($domain_user_found && $domain_user_status == "Pending") {
+                    $body = $this->html_pending();
+                } else {
+                    $body = $this->process_oauth_register($email, $oauth, $provider);
+                }
+            }
+        }
+
+        // Phase 2: render page after cookies have been set
         if (fn_development_server()) $menu->head();
         unset($forms->message[0]);
         print $this->css();
         print $this->js();
         print $forms->open(array(), array("onsubmit"=>"return false;"));
         print "<div id=scscpq_content>";
-
-        if (isset($_SESSION[$error_key])) {
-            $error = $_SESSION[$error_key];
-            unset($_SESSION[$error_key]);
-            print "<p style='color:red;'>" . htmlspecialchars($error) . "</p>";
-            print $this->html_register();
-            print "</div>";
-            print $forms->close();
-            if (fn_development_server()) $menu->copyright();
-            return;
-        }
-
-        $oauth = $_SESSION[$result_key];
-        unset($_SESSION[$result_key]);
-
-        $email = $oauth['email'];
-        if (!strlen($email)) {
-            print "<p style='color:red;'>" . $provider . " did not provide an email address. Please use the registration form.</p>";
-            print $this->html_register();
-            print "</div>";
-            print $forms->close();
-            if (fn_development_server()) $menu->copyright();
-            return;
-        }
-
-        $profile_obj = new stdClass();
-        $profile_obj->email      = $email;
-        $profile_obj->name_first = $oauth['name_first'];
-        $profile_obj->name_last  = $oauth['name_last'];
-        $database->profile->load($profile_obj);
-
-        $database->remote->access($email, '');
-        $domain_user_found  = $database->user->meta->rows;
-        $domain_user_status = $database->user->data->status;
-
-        if ($database->remote->meta->rows) {
-            $this->grant_oauth_remote_access($email, TRUE);
-        } elseif ($domain_user_found && $domain_user_status == "Active") {
-            $this->grant_oauth_remote_access($email, FALSE);
-        } elseif ($domain_user_found && $domain_user_status == "Pending") {
-            print $this->html_pending();
-        } else {
-            print $this->process_oauth_register($email, $oauth, $provider);
-        }
-
+        print $body;
         print "</div>";
         print $forms->close();
         if (fn_development_server()) $menu->copyright();
     }
 
     function grant_microsoft_remote_access($email, $is_update) {
-        $this->grant_oauth_remote_access($email, $is_update);
+        return $this->grant_oauth_remote_access($email, $is_update);
     }
 
     function grant_oauth_remote_access($email, $is_update) {
@@ -355,15 +350,12 @@ class remote_access_class {
         $database->remote->data->email = $email;
         $database->remote->expiry();
         $database->remote->token();
-        // Unlock code set to far future so IP-based token prompt is never triggered
         $database->remote->data->unlock_code = dechex(strtotime('+1 year'));
         $database->remote->update($is_update);
         $menu->cookie($database->remote->data->token, 'remote');
         $menu->login_update(1);
-        print $this->json_remote_message();
-        // session is now active/catalog-enabled; refresh header menu (Request Access / Catalog)
-        // without using scscpq_event(), which would blank #scscpq_page with a spinner
-        print '<script>'
+        $results = $this->json_remote_message();
+        $results .= '<script>'
             . 'if (typeof jQuery === "function" && typeof scscpq_url !== "undefined") {'
             . 'jQuery.ajax({'
             . 'url: scscpq_url,'
@@ -382,6 +374,7 @@ class remote_access_class {
             . '});'
             . '}'
             . '</script>';
+        return $results;
     }
 
     function process_microsoft_register($email, $oauth) {
