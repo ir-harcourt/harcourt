@@ -467,6 +467,8 @@ class NewUserTest extends TestCase
     {
         global $database;
         $database->remote->meta->rows = 1;
+        $database->user->meta->rows   = 1;
+        $database->user->data->status = 'Active';
         $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'known@harcourt.co']);
 
         ob_start();
@@ -642,6 +644,8 @@ class NewUserTest extends TestCase
     {
         global $database;
         $database->remote->meta->rows = 1;
+        $database->user->meta->rows   = 1;
+        $database->user->data->status = 'Active';
         $_SESSION['google_oauth_result'] = $this->oauthData(['email' => 'known@harcourt.co']);
 
         ob_start();
@@ -727,5 +731,89 @@ class NewUserTest extends TestCase
         $result = $this->sut->process_oauth_register('fail@example.com', $this->oauthData(['email' => 'fail@example.com']), 'Google');
 
         $this->assertStringContainsStringIgnoringCase('Internal error', $result);
+    }
+
+    // ── OAuth session flag ──────────────────────────────────────────────
+
+    public function test_grant_oauth_remote_access_sets_session_flag(): void
+    {
+        unset($_SESSION['oauth_authenticated']);
+
+        $this->sut->grant_oauth_remote_access('user@harcourt.co', FALSE);
+
+        $this->assertTrue($_SESSION['oauth_authenticated']);
+    }
+
+    public function test_process_oauth_register_sets_session_flag(): void
+    {
+        global $database;
+        unset($_SESSION['oauth_authenticated']);
+
+        $this->sut->process_oauth_register('user@example.com', $this->oauthData(['email' => 'user@example.com']), 'Google');
+
+        $this->assertTrue($_SESSION['oauth_authenticated']);
+    }
+
+    public function test_html_clears_token_action_for_oauth_active_user(): void
+    {
+        $_SESSION['oauth_authenticated'] = true;
+        $_SESSION['user'] = new user_data_class();
+        $_SESSION['user']->id = 42;
+        $_SESSION['user']->status = 'Active';
+        $this->sut->action = 'token';
+
+        ob_start();
+        $this->sut->html();
+        $output = ob_get_clean();
+
+        $this->assertStringNotContainsString('Enter Access Token', $output);
+    }
+
+    public function test_html_clears_remote_action_for_oauth_active_user(): void
+    {
+        $_SESSION['oauth_authenticated'] = true;
+        $_SESSION['user'] = new user_data_class();
+        $_SESSION['user']->id = 42;
+        $_SESSION['user']->status = 'Active';
+        $this->sut->action = 'remote';
+
+        ob_start();
+        $this->sut->html();
+        $output = ob_get_clean();
+
+        $this->assertStringNotContainsString('Enter Access Token', $output);
+    }
+
+    public function test_html_keeps_token_action_for_non_oauth_user(): void
+    {
+        global $database;
+        unset($_SESSION['oauth_authenticated']);
+        $_SESSION['user'] = new user_data_class();
+        $_SESSION['user']->id = 42;
+        $_SESSION['user']->status = 'Active';
+        $this->sut->action = 'token';
+        $this->sut->remote = '';
+        $database->profile->data->email = 'user@example.com';
+
+        ob_start();
+        $this->sut->html();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Enter Access Token', $output);
+    }
+
+    public function test_html_keeps_pending_action_for_oauth_pending_user(): void
+    {
+        $_SESSION['oauth_authenticated'] = true;
+        $_SESSION['user'] = new user_data_class();
+        $_SESSION['user']->id = 42;
+        $_SESSION['user']->status = 'Pending';
+        $this->sut->action = 'pending';
+
+        ob_start();
+        $this->sut->html();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsStringIgnoringCase('pending', $output);
     }
 }
