@@ -251,6 +251,10 @@ class remote_access_class {
 			$this->action="pending";
             break;
 		}
+        if (isset($_SESSION['oauth_authenticated']) && $_SESSION['user']->id && $_SESSION['user']->status == "Active"
+            && ($this->action == "remote" || $this->action == "token")) {
+            $this->action = '';
+        }
         if (fn_development_server()) $menu->head();
 	    unset($forms->message[0]);
         print $this->css();
@@ -314,10 +318,8 @@ class remote_access_class {
                 $domain_user_found  = $database->user->meta->rows;
                 $domain_user_status = $database->user->data->status;
 
-                if ($database->remote->meta->rows) {
-                    $body = $this->grant_oauth_remote_access($email, TRUE);
-                } elseif ($domain_user_found && $domain_user_status == "Active") {
-                    $body = $this->grant_oauth_remote_access($email, FALSE);
+                if ($domain_user_found && $domain_user_status == "Active") {
+                    $body = $this->grant_oauth_remote_access($email, $database->remote->meta->rows ? TRUE : FALSE);
                 } elseif ($domain_user_found && $domain_user_status == "Pending") {
                     $body = $this->html_pending();
                 } else {
@@ -346,6 +348,7 @@ class remote_access_class {
     function grant_oauth_remote_access($email, $is_update) {
         global $database, $menu;
         $this->trace[]=__FUNCTION__;
+        $_SESSION['oauth_authenticated'] = true;
         $menu->cookie($email);
         $database->remote->data->email = $email;
         $database->remote->expiry();
@@ -384,7 +387,7 @@ class remote_access_class {
     function process_oauth_register($email, $oauth, $provider = 'Microsoft') {
         global $database, $forms, $menu;
         $this->trace[]=__FUNCTION__;
-
+        $_SESSION['oauth_authenticated'] = true;
         $menu->cookie($email);
         list(, $domain) = explode("@", $email, 2);
         $database->user->data = new user_data_class();

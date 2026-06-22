@@ -18,6 +18,7 @@ if (($_SERVER['SERVER_ADMIN'] ?? '') != "host@suburbancomputer.com") {
 	ini_set("error_log", $_SERVER['DOCUMENT_ROOT'] . "/error.log");
 }
 
+if (!ob_get_level()) ob_start();
 print header("Access-Control-Allow-Origin: *");
 
 ini_set('default_charset', 'UTF-8');
