@@ -66,6 +66,7 @@ require_once "classes/orderhd.php";
 require_once "classes/orderln.php";
 require_once "classes/search.php";
 require_once "classes/remote.php";
+require_once "classes/blacklist.php";
 require_once "classes/user.php";
 require_once "classes/profile.php";
 require_once "classes/search.php";
@@ -76,7 +77,7 @@ require_once "classes/portalcontent.php";
 require_once "classes/portalcategory.php";
 require_once "classes/portalitem.php";
 
-$env = parse_ini_file($_SERVER['DOCUMENT_ROOT'] . '/.env');
+$env = parse_ini_file(dirname($_SERVER['DOCUMENT_ROOT']) . '/.env');
 $database->connect($env['DB_HOST'], $env['DB_USER'], $env['DB_PASS'], $env['DB_NAME']);
 $database->set_charset("utf8mb4");
 

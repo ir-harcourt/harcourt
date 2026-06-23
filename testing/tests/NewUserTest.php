@@ -134,7 +134,22 @@ class StubUser {
 }
 
 class StubLog {
-    public function update($type, $opts = []) {}
+    public $lastType    = '';
+    public $lastOptions = [];
+    public function update($type, $opts = []) {
+        $this->lastType    = $type;
+        $this->lastOptions = $opts;
+    }
+}
+
+class StubBlacklist {
+    public $blocked = [];
+    public function check($email) {
+        if (!strlen($email)) return FALSE;
+        $parts = explode("@", $email, 2);
+        if (!isset($parts[1]) || !strlen($parts[1])) return FALSE;
+        return in_array(strtolower(trim($parts[1])), $this->blocked);
+    }
 }
 
 class StubDatabase {
@@ -142,13 +157,15 @@ class StubDatabase {
     public $user;
     public $profile;
     public $log;
+    public $blacklist;
     public $registry;
     public function __construct() {
-        $this->remote   = new StubRemote();
-        $this->user     = new StubUser();
-        $this->profile  = new StubProfile();
-        $this->log      = new StubLog();
-        $this->registry = (object)[
+        $this->remote    = new StubRemote();
+        $this->user      = new StubUser();
+        $this->profile   = new StubProfile();
+        $this->log       = new StubLog();
+        $this->blacklist = new StubBlacklist();
+        $this->registry  = (object)[
             'email' => (object)['webmaster' => 'noreply@example.com'],
         ];
     }
@@ -815,5 +832,151 @@ class NewUserTest extends TestCase
         $output = ob_get_clean();
 
         $this->assertStringContainsStringIgnoringCase('pending', $output);
+    }
+
+    // ── Domain Blacklist ──────────────────────────────────────────────────
+
+    public function test_microsoft_oauth_blocks_blacklisted_domain(): void
+    {
+        global $database;
+        $database->blacklist->blocked = ['evil.com'];
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'user@evil.com']);
+
+        ob_start();
+        $this->sut->process_oauth('Microsoft');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('not authorized', $output);
+        $this->assertStringNotContainsString('Congratulations', $output);
+    }
+
+    public function test_microsoft_oauth_logs_blacklist_denial(): void
+    {
+        global $database;
+        $database->blacklist->blocked = ['evil.com'];
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'user@evil.com']);
+
+        ob_start();
+        $this->sut->process_oauth('Microsoft');
+        ob_end_clean();
+
+        $this->assertSame('Blacklist:Denied', $database->log->lastType);
+        $this->assertSame('user@evil.com', $database->log->lastOptions['email']);
+        $this->assertStringContainsString('Microsoft OAuth', $database->log->lastOptions['comment']);
+    }
+
+    public function test_google_oauth_blocks_blacklisted_domain(): void
+    {
+        global $database;
+        $database->blacklist->blocked = ['blocked.org'];
+        $_SESSION['google_oauth_result'] = $this->oauthData(['email' => 'someone@blocked.org']);
+
+        ob_start();
+        $this->sut->process_oauth('Google');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('not authorized', $output);
+        $this->assertStringNotContainsString('Congratulations', $output);
+    }
+
+    public function test_google_oauth_logs_blacklist_denial(): void
+    {
+        global $database;
+        $database->blacklist->blocked = ['blocked.org'];
+        $_SESSION['google_oauth_result'] = $this->oauthData(['email' => 'someone@blocked.org']);
+
+        ob_start();
+        $this->sut->process_oauth('Google');
+        ob_end_clean();
+
+        $this->assertSame('Blacklist:Denied', $database->log->lastType);
+        $this->assertSame('someone@blocked.org', $database->log->lastOptions['email']);
+        $this->assertStringContainsString('Google OAuth', $database->log->lastOptions['comment']);
+    }
+
+    public function test_oauth_allows_non_blacklisted_domain(): void
+    {
+        global $database;
+        $database->blacklist->blocked = ['evil.com'];
+        $database->user->meta->rows  = 1;
+        $database->user->data->status = 'Active';
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'user@good.com']);
+
+        ob_start();
+        $this->sut->process_oauth('Microsoft');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Congratulations', $output);
+        $this->assertStringNotContainsString('not authorized', $output);
+    }
+
+    public function test_registration_form_blocks_blacklisted_domain(): void
+    {
+        global $database;
+        $database->blacklist->blocked = ['spam.net'];
+
+        $address = new address_class('profile', $database->profile->data);
+        $address->data->email = 'bot@spam.net';
+
+        $ref = new ReflectionProperty(address_class::class, 'data');
+        $ref->setAccessible(true);
+
+        $this->sut->recaptcha = new recaptcha_class('newuser', 1, ['local' => TRUE]);
+        $_POST['g-recaptcha-response'] = 'token';
+
+        $origClass = new ReflectionClass(address_class::class);
+        $origCtor  = $origClass->getConstructor();
+
+        $testCase = $this;
+        $emailToSet = 'bot@spam.net';
+
+        $addrStub = new class('profile', $database->profile->data) extends address_class {
+            public static $forceEmail = '';
+            public function verify() {
+                $this->data->email = self::$forceEmail;
+            }
+        };
+        $addrStub::$forceEmail = $emailToSet;
+
+        // We can't easily override address_class construction in json_register,
+        // so test via process_oauth which we can control
+        $database->blacklist->blocked = ['spam.net'];
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'bot@spam.net']);
+
+        ob_start();
+        $this->sut->process_oauth('Microsoft');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('not authorized', $output);
+    }
+
+    public function test_blacklist_denial_does_not_create_user_record(): void
+    {
+        global $database;
+        $database->blacklist->blocked = ['evil.com'];
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'hacker@evil.com']);
+
+        $originalId = $database->user->data->id;
+
+        ob_start();
+        $this->sut->process_oauth('Microsoft');
+        ob_end_clean();
+
+        $this->assertSame($originalId, $database->user->data->id);
+        $this->assertSame('', $database->user->data->domain);
+    }
+
+    public function test_blacklist_denial_does_not_set_oauth_session(): void
+    {
+        global $database;
+        $database->blacklist->blocked = ['evil.com'];
+        unset($_SESSION['oauth_authenticated']);
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'hacker@evil.com']);
+
+        ob_start();
+        $this->sut->process_oauth('Microsoft');
+        ob_end_clean();
+
+        $this->assertArrayNotHasKey('oauth_authenticated', $_SESSION);
     }
 }

@@ -85,6 +85,14 @@ class remote_access_class {
         $address=new address_class("profile", $database->profile->data, array("order"=>array("email", "name")));
         $address->registry->email="required";
         $address->verify();
+        if ($database->blacklist->check($address->data->email)) {
+            $options = array();
+            $options['email'] = $address->data->email;
+            $options['comment'] = "Blacklisted domain denied (registration form)";
+            $database->log->update("Blacklist:Denied", $options);
+            $this->response->html->profile_register = "<p style='color:red;'>Your domain is not authorized to access this site. Please contact us for more information.</p>";
+            return;
+        }
         $database->remote->access($address->data->email);
         if (strlen($database->remote->data->access)) {
             $menu->cookie($address->data->email);
@@ -307,6 +315,12 @@ class remote_access_class {
             $email = $oauth['email'];
             if (!strlen($email)) {
                 $body = "<p style='color:red;'>" . $provider . " did not provide an email address. Please use the registration form.</p>" . $this->html_register();
+            } elseif ($database->blacklist->check($email)) {
+                $options = array();
+                $options['email'] = $email;
+                $options['comment'] = "Blacklisted domain denied (" . $provider . " OAuth)";
+                $database->log->update("Blacklist:Denied", $options);
+                $body = "<p style='color:red;'>Your domain is not authorized to access this site. Please contact us for more information.</p>";
             } else {
                 $profile_obj = new stdClass();
                 $profile_obj->email      = $email;
