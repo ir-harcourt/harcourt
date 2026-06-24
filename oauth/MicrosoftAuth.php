@@ -39,6 +39,25 @@ class MicrosoftAuth {
         );
     }
 
+    private function fetchGraphProfile($accessToken) {
+        $fields = ['mail', 'userPrincipalName', 'displayName', 'givenName', 'surname', 'companyName', 'streetAddress', 'city', 'state', 'postalCode'];
+        $url = 'https://graph.microsoft.com/v1.0/me?$select=' . implode(',', $fields);
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . $accessToken]);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($httpCode !== 200) {
+            throw new \Exception('Graph API returned HTTP ' . $httpCode . ': ' . $response);
+        }
+        $data = json_decode($response, true);
+        if (!is_array($data) || isset($data['error'])) {
+            throw new \Exception('Graph API error: ' . ($data['error']['message'] ?? $response));
+        }
+        return $data;
+    }
+
     private function generatePkceVerifier() {
         return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
     }
@@ -93,9 +112,9 @@ class MicrosoftAuth {
 
             $profile = [];
             try {
-                $profile = $provider->getResourceOwner($token)->toArray();
+                $profile = $this->fetchGraphProfile($token->getToken());
             } catch (\Exception $e) {
-                error_log('[MicrosoftAuth] Graph API profile lookup failed (User.Read consent may be needed): ' . $e->getMessage());
+                error_log('[MicrosoftAuth] Graph API profile lookup failed: ' . $e->getMessage());
             }
 
             // ID token claims as fallback — safe in auth code flow since the
