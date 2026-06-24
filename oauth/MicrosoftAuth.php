@@ -3,6 +3,7 @@ class MicrosoftAuth {
     private $clientId;
     private $tenantId;
     private $clientSecret;
+    private $appUrl;
     private $scopes = ['openid', 'profile', 'email', 'User.Read'];
 
     public function __construct() {
@@ -10,11 +11,11 @@ class MicrosoftAuth {
         $this->clientId     = $env['MICROSOFT_CLIENT_ID'];
         $this->tenantId     = $env['MICROSOFT_TENANT_ID'];
         $this->clientSecret = $env['MICROSOFT_CLIENT_SECRET'];
+        $this->appUrl       = rtrim($env['APP_URL'], '/');
     }
 
     private function redirectUri() {
-        $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        return $scheme . '://' . $_SERVER['HTTP_HOST'] . '/oauth/callback.php';
+        return $this->appUrl . '/oauth/callback.php';
     }
 
     private function composerPath() {
@@ -23,7 +24,7 @@ class MicrosoftAuth {
 
     private function provider() {
         require_once $this->composerPath() . '/vendor/autoload.php';
-        $profile_fields = ['companyName', 'streetAddress', 'city', 'state', 'postalCode'];
+        $profile_fields = ['mail', 'userPrincipalName', 'displayName', 'givenName', 'surname', 'companyName', 'streetAddress', 'city', 'state', 'postalCode'];
         $resource_owner_url = 'https://graph.microsoft.com/v1.0/me?$select=' . implode(',', $profile_fields);
         return new \Greew\OAuth2\Client\Provider\Azure(
             [
@@ -38,9 +39,44 @@ class MicrosoftAuth {
         );
     }
 
+    private function fetchGraphProfile($accessToken) {
+        $fields = ['mail', 'userPrincipalName', 'displayName', 'givenName', 'surname', 'companyName', 'streetAddress', 'city', 'state', 'postalCode'];
+        $url = 'https://graph.microsoft.com/v1.0/me?$select=' . implode(',', $fields);
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . $accessToken]);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($httpCode !== 200) {
+            throw new \Exception('Graph API returned HTTP ' . $httpCode . ': ' . $response);
+        }
+        $data = json_decode($response, true);
+        if (!is_array($data) || isset($data['error'])) {
+            throw new \Exception('Graph API error: ' . ($data['error']['message'] ?? $response));
+        }
+        return $data;
+    }
+
+    private function generatePkceVerifier() {
+        return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+    }
+
+    private function generatePkceChallenge($verifier) {
+        return rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
+    }
+
     public function init() {
         $provider = $this->provider();
-        $url = $provider->getAuthorizationUrl(['scope' => $this->scopes]);
+
+        $verifier = $this->generatePkceVerifier();
+        $_SESSION['oauth2_pkce_verifier'] = $verifier;
+
+        $url = $provider->getAuthorizationUrl([
+            'scope' => $this->scopes,
+            'code_challenge' => $this->generatePkceChallenge($verifier),
+            'code_challenge_method' => 'S256',
+        ]);
         $_SESSION['oauth2state'] = $provider->getState();
         header('Location: ' . $url);
         exit;
@@ -50,6 +86,7 @@ class MicrosoftAuth {
         $state = isset($_GET['state']) ? $_GET['state'] : '';
         if (!$state || !isset($_SESSION['oauth2state']) || $state !== $_SESSION['oauth2state']) {
             unset($_SESSION['oauth2state']);
+            unset($_SESSION['oauth2_pkce_verifier']);
             $_SESSION['microsoft_oauth_error'] = 'Invalid OAuth state. Please try again.';
             header('Location: /request-access');
             exit;
@@ -57,6 +94,7 @@ class MicrosoftAuth {
         unset($_SESSION['oauth2state']);
 
         if (isset($_GET['error'])) {
+            unset($_SESSION['oauth2_pkce_verifier']);
             $_SESSION['microsoft_oauth_error'] = htmlspecialchars($_GET['error_description'] ?? $_GET['error']);
             header('Location: /request-access');
             exit;
@@ -64,25 +102,44 @@ class MicrosoftAuth {
 
         try {
             $provider = $this->provider();
-            $token    = $provider->getAccessToken('authorization_code', ['code' => $_GET['code']]);
 
-            $parts   = explode('.', $token->getToken());
-            $payload = json_decode(base64_decode(str_replace(['-', '_'], ['+', '/'], $parts[1])), true);
+            if (isset($_SESSION['oauth2_pkce_verifier'])) {
+                $provider->setPkceCode($_SESSION['oauth2_pkce_verifier']);
+                unset($_SESSION['oauth2_pkce_verifier']);
+            }
 
-            $email = $payload['unique_name'] ?? $payload['upn'] ?? $payload['email'] ?? '';
+            $token = $provider->getAccessToken('authorization_code', ['code' => $_GET['code']]);
 
             $profile = [];
             try {
-                $profile = $provider->getResourceOwner($token)->toArray();
+                $profile = $this->fetchGraphProfile($token->getToken());
             } catch (\Exception $e) {
-                error_log('[MicrosoftAuth] Profile lookup failed: ' . $e->getMessage());
+                error_log('[MicrosoftAuth] Graph API profile lookup failed: ' . $e->getMessage());
             }
 
+            // ID token claims as fallback — safe in auth code flow since the
+            // token was delivered server-to-server over TLS with client_secret.
+            $claims = [];
+            $id_token = $token->getValues()['id_token'] ?? '';
+            if ($id_token && count(explode('.', $id_token)) === 3) {
+                $parts  = explode('.', $id_token);
+                $claims = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true) ?: [];
+            }
+
+            $email = strtolower(trim(
+                $profile['mail'] ?? $profile['userPrincipalName'] ?? $claims['email'] ?? $claims['preferred_username'] ?? $claims['upn'] ?? ''
+            ));
+            if (empty($email) || strpos($email, '@') === false) {
+                throw new \Exception('No verified email address available from Microsoft account.');
+            }
+
+            session_regenerate_id(true);
+
             $_SESSION['microsoft_oauth_result'] = [
-                'email'        => strtolower(trim($email)),
-                'name_first'   => $payload['given_name']  ?? '',
-                'name_last'    => $payload['family_name'] ?? '',
-                'display_name' => $payload['name']        ?? '',
+                'email'        => $email,
+                'name_first'   => $profile['givenName']     ?? $claims['given_name']  ?? '',
+                'name_last'    => $profile['surname']       ?? $claims['family_name'] ?? '',
+                'display_name' => $profile['displayName']   ?? $claims['name']        ?? '',
                 'company_name' => $profile['companyName']   ?? '',
                 'address'      => $profile['streetAddress'] ?? '',
                 'city'         => $profile['city']          ?? '',

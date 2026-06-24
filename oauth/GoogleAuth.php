@@ -4,15 +4,17 @@ class GoogleAuth {
     private $clientSecret;
     private $scopes = ['openid', 'profile', 'email'];
 
+    private $appUrl;
+
     public function __construct() {
         $env = parse_ini_file($_SERVER['DOCUMENT_ROOT'] . '/.env');
         $this->clientId     = $env['GOOGLE_CLIENT_ID'];
         $this->clientSecret = $env['GOOGLE_CLIENT_SECRET'];
+        $this->appUrl       = rtrim($env['APP_URL'], '/');
     }
 
     private function redirectUri() {
-        $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        return $scheme . '://' . $_SERVER['HTTP_HOST'] . '/oauth/google_callback.php';
+        return $this->appUrl . '/oauth/google_callback.php';
     }
 
     private function composerPath() {
@@ -28,9 +30,25 @@ class GoogleAuth {
         ]);
     }
 
+    private function generatePkceVerifier() {
+        return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+    }
+
+    private function generatePkceChallenge($verifier) {
+        return rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
+    }
+
     public function init() {
         $provider = $this->provider();
-        $url = $provider->getAuthorizationUrl(['scope' => $this->scopes]);
+
+        $verifier = $this->generatePkceVerifier();
+        $_SESSION['google_oauth2_pkce_verifier'] = $verifier;
+
+        $url = $provider->getAuthorizationUrl([
+            'scope' => $this->scopes,
+            'code_challenge' => $this->generatePkceChallenge($verifier),
+            'code_challenge_method' => 'S256',
+        ]);
         $_SESSION['google_oauth2state'] = $provider->getState();
         header('Location: ' . $url);
         exit;
@@ -40,6 +58,7 @@ class GoogleAuth {
         $state = isset($_GET['state']) ? $_GET['state'] : '';
         if (!$state || !isset($_SESSION['google_oauth2state']) || $state !== $_SESSION['google_oauth2state']) {
             unset($_SESSION['google_oauth2state']);
+            unset($_SESSION['google_oauth2_pkce_verifier']);
             $_SESSION['google_oauth_error'] = 'Invalid OAuth state. Please try again.';
             header('Location: /request-access');
             exit;
@@ -47,6 +66,7 @@ class GoogleAuth {
         unset($_SESSION['google_oauth2state']);
 
         if (isset($_GET['error'])) {
+            unset($_SESSION['google_oauth2_pkce_verifier']);
             $_SESSION['google_oauth_error'] = htmlspecialchars($_GET['error_description'] ?? $_GET['error']);
             header('Location: /request-access');
             exit;
@@ -54,10 +74,24 @@ class GoogleAuth {
 
         try {
             $provider = $this->provider();
+
+            if (isset($_SESSION['google_oauth2_pkce_verifier'])) {
+                $provider->setPkceCode($_SESSION['google_oauth2_pkce_verifier']);
+                unset($_SESSION['google_oauth2_pkce_verifier']);
+            }
+
             $token = $provider->getAccessToken('authorization_code', ['code' => $_GET['code']]);
 
             $owner = $provider->getResourceOwner($token);
             $user  = $owner->toArray();
+
+            if (empty($user['email_verified'])) {
+                $_SESSION['google_oauth_error'] = 'Your Google email address is not verified. Please verify it and try again.';
+                header('Location: /request-access');
+                exit;
+            }
+
+            session_regenerate_id(true);
 
             $_SESSION['google_oauth_result'] = [
                 'email'        => strtolower(trim($user['email'] ?? '')),
