@@ -77,7 +77,7 @@ require_once "classes/portalcontent.php";
 require_once "classes/portalcategory.php";
 require_once "classes/portalitem.php";
 
-$env = parse_ini_file(dirname($_SERVER['DOCUMENT_ROOT']) . '/.env');
+$env = parse_ini_file($_SERVER['DOCUMENT_ROOT'] . '/.env');
 $database->connect($env['DB_HOST'], $env['DB_USER'], $env['DB_PASS'], $env['DB_NAME']);
 $database->set_charset("utf8mb4");
 

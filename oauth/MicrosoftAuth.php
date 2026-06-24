@@ -3,6 +3,7 @@ class MicrosoftAuth {
     private $clientId;
     private $tenantId;
     private $clientSecret;
+    private $appUrl;
     private $scopes = ['openid', 'profile', 'email', 'User.Read'];
 
     public function __construct() {
@@ -10,11 +11,11 @@ class MicrosoftAuth {
         $this->clientId     = $env['MICROSOFT_CLIENT_ID'];
         $this->tenantId     = $env['MICROSOFT_TENANT_ID'];
         $this->clientSecret = $env['MICROSOFT_CLIENT_SECRET'];
+        $this->appUrl       = rtrim($env['APP_URL'], '/');
     }
 
     private function redirectUri() {
-        $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        return $scheme . '://' . $_SERVER['HTTP_HOST'] . '/oauth/callback.php';
+        return $this->appUrl . '/oauth/callback.php';
     }
 
     private function composerPath() {
@@ -23,7 +24,7 @@ class MicrosoftAuth {
 
     private function provider() {
         require_once $this->composerPath() . '/vendor/autoload.php';
-        $profile_fields = ['companyName', 'streetAddress', 'city', 'state', 'postalCode'];
+        $profile_fields = ['mail', 'userPrincipalName', 'displayName', 'givenName', 'surname', 'companyName', 'streetAddress', 'city', 'state', 'postalCode'];
         $resource_owner_url = 'https://graph.microsoft.com/v1.0/me?$select=' . implode(',', $profile_fields);
         return new \Greew\OAuth2\Client\Provider\Azure(
             [
@@ -66,23 +67,26 @@ class MicrosoftAuth {
             $provider = $this->provider();
             $token    = $provider->getAccessToken('authorization_code', ['code' => $_GET['code']]);
 
-            $parts   = explode('.', $token->getToken());
-            $payload = json_decode(base64_decode(str_replace(['-', '_'], ['+', '/'], $parts[1])), true);
-
-            $email = $payload['unique_name'] ?? $payload['upn'] ?? $payload['email'] ?? '';
+            $id_token = $token->getValues()['id_token'] ?? '';
+            if (!$id_token) {
+                throw new \Exception('No ID token received from Microsoft.');
+            }
+            $parts   = explode('.', $id_token);
+            $claims  = json_decode(base64_decode(str_replace(['-', '_'], ['+', '/'], $parts[1])), true);
+            $email   = $claims['email'] ?? $claims['preferred_username'] ?? $claims['upn'] ?? '';
 
             $profile = [];
             try {
                 $profile = $provider->getResourceOwner($token)->toArray();
             } catch (\Exception $e) {
-                error_log('[MicrosoftAuth] Profile lookup failed: ' . $e->getMessage());
+                error_log('[MicrosoftAuth] Graph API profile lookup failed (User.Read consent may be needed): ' . $e->getMessage());
             }
 
             $_SESSION['microsoft_oauth_result'] = [
-                'email'        => strtolower(trim($email)),
-                'name_first'   => $payload['given_name']  ?? '',
-                'name_last'    => $payload['family_name'] ?? '',
-                'display_name' => $payload['name']        ?? '',
+                'email'        => strtolower(trim($profile['mail'] ?? $email)),
+                'name_first'   => $profile['givenName']     ?? $claims['given_name']  ?? '',
+                'name_last'    => $profile['surname']       ?? $claims['family_name'] ?? '',
+                'display_name' => $profile['displayName']   ?? $claims['name']        ?? '',
                 'company_name' => $profile['companyName']   ?? '',
                 'address'      => $profile['streetAddress'] ?? '',
                 'city'         => $profile['city']          ?? '',

@@ -4,15 +4,17 @@ class GoogleAuth {
     private $clientSecret;
     private $scopes = ['openid', 'profile', 'email'];
 
+    private $appUrl;
+
     public function __construct() {
         $env = parse_ini_file($_SERVER['DOCUMENT_ROOT'] . '/.env');
         $this->clientId     = $env['GOOGLE_CLIENT_ID'];
         $this->clientSecret = $env['GOOGLE_CLIENT_SECRET'];
+        $this->appUrl       = rtrim($env['APP_URL'], '/');
     }
 
     private function redirectUri() {
-        $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        return $scheme . '://' . $_SERVER['HTTP_HOST'] . '/oauth/google_callback.php';
+        return $this->appUrl . '/oauth/google_callback.php';
     }
 
     private function composerPath() {
@@ -58,6 +60,12 @@ class GoogleAuth {
 
             $owner = $provider->getResourceOwner($token);
             $user  = $owner->toArray();
+
+            if (empty($user['email_verified'])) {
+                $_SESSION['google_oauth_error'] = 'Your Google email address is not verified. Please verify it and try again.';
+                header('Location: /request-access');
+                exit;
+            }
 
             $_SESSION['google_oauth_result'] = [
                 'email'        => strtolower(trim($user['email'] ?? '')),
