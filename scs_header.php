@@ -19,7 +19,6 @@ if (($_SERVER['SERVER_ADMIN'] ?? '') != "host@suburbancomputer.com") {
 }
 
 if (!ob_get_level()) ob_start();
-print header("Access-Control-Allow-Origin: *");
 
 ini_set('default_charset', 'UTF-8');
 ini_set('memory_limit', '512M');
@@ -78,6 +77,11 @@ require_once "classes/portalcategory.php";
 require_once "classes/portalitem.php";
 
 $env = parse_ini_file($_SERVER['DOCUMENT_ROOT'] . '/.env');
+$_cors_origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if ($_cors_origin && $_cors_origin === rtrim($env['APP_URL'], '/')) {
+    header('Access-Control-Allow-Origin: ' . $_cors_origin);
+}
+unset($_cors_origin);
 $database->connect($env['DB_HOST'], $env['DB_USER'], $env['DB_PASS'], $env['DB_NAME']);
 $database->set_charset("utf8mb4");
 

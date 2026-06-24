@@ -39,9 +39,25 @@ class MicrosoftAuth {
         );
     }
 
+    private function generatePkceVerifier() {
+        return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+    }
+
+    private function generatePkceChallenge($verifier) {
+        return rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
+    }
+
     public function init() {
         $provider = $this->provider();
-        $url = $provider->getAuthorizationUrl(['scope' => $this->scopes]);
+
+        $verifier = $this->generatePkceVerifier();
+        $_SESSION['oauth2_pkce_verifier'] = $verifier;
+
+        $url = $provider->getAuthorizationUrl([
+            'scope' => $this->scopes,
+            'code_challenge' => $this->generatePkceChallenge($verifier),
+            'code_challenge_method' => 'S256',
+        ]);
         $_SESSION['oauth2state'] = $provider->getState();
         header('Location: ' . $url);
         exit;
@@ -51,6 +67,7 @@ class MicrosoftAuth {
         $state = isset($_GET['state']) ? $_GET['state'] : '';
         if (!$state || !isset($_SESSION['oauth2state']) || $state !== $_SESSION['oauth2state']) {
             unset($_SESSION['oauth2state']);
+            unset($_SESSION['oauth2_pkce_verifier']);
             $_SESSION['microsoft_oauth_error'] = 'Invalid OAuth state. Please try again.';
             header('Location: /request-access');
             exit;
@@ -58,6 +75,7 @@ class MicrosoftAuth {
         unset($_SESSION['oauth2state']);
 
         if (isset($_GET['error'])) {
+            unset($_SESSION['oauth2_pkce_verifier']);
             $_SESSION['microsoft_oauth_error'] = htmlspecialchars($_GET['error_description'] ?? $_GET['error']);
             header('Location: /request-access');
             exit;
@@ -65,15 +83,13 @@ class MicrosoftAuth {
 
         try {
             $provider = $this->provider();
-            $token    = $provider->getAccessToken('authorization_code', ['code' => $_GET['code']]);
 
-            $id_token = $token->getValues()['id_token'] ?? '';
-            if (!$id_token) {
-                throw new \Exception('No ID token received from Microsoft.');
+            if (isset($_SESSION['oauth2_pkce_verifier'])) {
+                $provider->setPkceCode($_SESSION['oauth2_pkce_verifier']);
+                unset($_SESSION['oauth2_pkce_verifier']);
             }
-            $parts   = explode('.', $id_token);
-            $claims  = json_decode(base64_decode(str_replace(['-', '_'], ['+', '/'], $parts[1])), true);
-            $email   = $claims['email'] ?? $claims['preferred_username'] ?? $claims['upn'] ?? '';
+
+            $token = $provider->getAccessToken('authorization_code', ['code' => $_GET['code']]);
 
             $profile = [];
             try {
@@ -82,8 +98,26 @@ class MicrosoftAuth {
                 error_log('[MicrosoftAuth] Graph API profile lookup failed (User.Read consent may be needed): ' . $e->getMessage());
             }
 
+            // ID token claims as fallback — safe in auth code flow since the
+            // token was delivered server-to-server over TLS with client_secret.
+            $claims = [];
+            $id_token = $token->getValues()['id_token'] ?? '';
+            if ($id_token && count(explode('.', $id_token)) === 3) {
+                $parts  = explode('.', $id_token);
+                $claims = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true) ?: [];
+            }
+
+            $email = strtolower(trim(
+                $profile['mail'] ?? $profile['userPrincipalName'] ?? $claims['email'] ?? $claims['preferred_username'] ?? $claims['upn'] ?? ''
+            ));
+            if (empty($email) || strpos($email, '@') === false) {
+                throw new \Exception('No verified email address available from Microsoft account.');
+            }
+
+            session_regenerate_id(true);
+
             $_SESSION['microsoft_oauth_result'] = [
-                'email'        => strtolower(trim($profile['mail'] ?? $email)),
+                'email'        => $email,
                 'name_first'   => $profile['givenName']     ?? $claims['given_name']  ?? '',
                 'name_last'    => $profile['surname']       ?? $claims['family_name'] ?? '',
                 'display_name' => $profile['displayName']   ?? $claims['name']        ?? '',
