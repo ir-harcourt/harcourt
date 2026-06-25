@@ -142,7 +142,7 @@ class MicrosoftAuth {
 
             $expected_nonce = $_SESSION['oauth2_nonce'] ?? '';
             unset($_SESSION['oauth2_nonce']);
-            if ($expected_nonce && !empty($claims['nonce']) && !hash_equals($expected_nonce, $claims['nonce'])) {
+            if (empty($expected_nonce) || empty($claims['nonce']) || !hash_equals($expected_nonce, $claims['nonce'])) {
                 throw new \Exception('ID token nonce mismatch — possible replay attack.');
             }
 
