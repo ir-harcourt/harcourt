@@ -45,6 +45,8 @@ class MicrosoftAuth {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . $accessToken]);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
@@ -72,12 +74,17 @@ class MicrosoftAuth {
         $verifier = $this->generatePkceVerifier();
         $_SESSION['oauth2_pkce_verifier'] = $verifier;
 
+        $nonce = bin2hex(random_bytes(16));
+        $_SESSION['oauth2_nonce'] = $nonce;
+
         $url = $provider->getAuthorizationUrl([
             'scope' => $this->scopes,
             'code_challenge' => $this->generatePkceChallenge($verifier),
             'code_challenge_method' => 'S256',
+            'nonce' => $nonce,
         ]);
         $_SESSION['oauth2state'] = $provider->getState();
+        $_SESSION['oauth2_state_time'] = time();
         header('Location: ' . $url);
         exit;
     }
@@ -85,16 +92,23 @@ class MicrosoftAuth {
     public function callback() {
         $state = isset($_GET['state']) ? $_GET['state'] : '';
         if (!$state || !isset($_SESSION['oauth2state']) || $state !== $_SESSION['oauth2state']) {
-            unset($_SESSION['oauth2state']);
-            unset($_SESSION['oauth2_pkce_verifier']);
+            unset($_SESSION['oauth2state'], $_SESSION['oauth2_pkce_verifier'], $_SESSION['oauth2_nonce'], $_SESSION['oauth2_state_time']);
             $_SESSION['microsoft_oauth_error'] = 'Invalid OAuth state. Please try again.';
             header('Location: /request-access');
             exit;
         }
-        unset($_SESSION['oauth2state']);
+
+        $state_age = time() - ($_SESSION['oauth2_state_time'] ?? 0);
+        if ($state_age > 300) {
+            unset($_SESSION['oauth2state'], $_SESSION['oauth2_pkce_verifier'], $_SESSION['oauth2_nonce'], $_SESSION['oauth2_state_time']);
+            $_SESSION['microsoft_oauth_error'] = 'Authentication request expired. Please try again.';
+            header('Location: /request-access');
+            exit;
+        }
+        unset($_SESSION['oauth2state'], $_SESSION['oauth2_state_time']);
 
         if (isset($_GET['error'])) {
-            unset($_SESSION['oauth2_pkce_verifier']);
+            unset($_SESSION['oauth2_pkce_verifier'], $_SESSION['oauth2_nonce']);
             $_SESSION['microsoft_oauth_error'] = htmlspecialchars($_GET['error_description'] ?? $_GET['error']);
             header('Location: /request-access');
             exit;
@@ -126,11 +140,44 @@ class MicrosoftAuth {
                 $claims = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true) ?: [];
             }
 
-            $email = strtolower(trim(
-                $profile['mail'] ?? $profile['userPrincipalName'] ?? $claims['email'] ?? $claims['preferred_username'] ?? $claims['upn'] ?? ''
-            ));
+            $expected_nonce = $_SESSION['oauth2_nonce'] ?? '';
+            unset($_SESSION['oauth2_nonce']);
+            if ($expected_nonce && !empty($claims['nonce']) && !hash_equals($expected_nonce, $claims['nonce'])) {
+                throw new \Exception('ID token nonce mismatch — possible replay attack.');
+            }
+
+            $email = '';
+            $email_verified = false;
+
+            // Graph API fields are organization-managed and verified
+            if (!empty($profile['mail']) && strpos($profile['mail'], '@') !== false) {
+                $email = $profile['mail'];
+                $email_verified = true;
+            } elseif (!empty($profile['userPrincipalName']) && strpos($profile['userPrincipalName'], '@') !== false) {
+                $email = $profile['userPrincipalName'];
+                $email_verified = true;
+            } elseif (!empty($claims['upn']) && strpos($claims['upn'], '@') !== false) {
+                // UPN is organization-managed
+                $email = $claims['upn'];
+                $email_verified = true;
+            } elseif (!empty($claims['email'])) {
+                $email = $claims['email'];
+                $email_verified = !empty($claims['email_verified']) || !empty($claims['xms_edv']);
+            } elseif (!empty($claims['preferred_username']) && strpos($claims['preferred_username'], '@') !== false) {
+                $email = $claims['preferred_username'];
+                $email_verified = !empty($claims['email_verified']) || !empty($claims['xms_edv']);
+            }
+
+            $email = strtolower(trim($email));
+
             if (empty($email) || strpos($email, '@') === false) {
-                throw new \Exception('No verified email address available from Microsoft account.');
+                throw new \Exception('No email address available from Microsoft account.');
+            }
+
+            if (!$email_verified) {
+                $_SESSION['microsoft_oauth_error'] = 'Your Microsoft email address is not verified. Please verify it and try again.';
+                header('Location: /request-access');
+                exit;
             }
 
             session_regenerate_id(true);
