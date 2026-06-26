@@ -50,6 +50,7 @@ class GoogleAuth {
             'code_challenge_method' => 'S256',
         ]);
         $_SESSION['google_oauth2state'] = $provider->getState();
+        $_SESSION['google_oauth2_state_time'] = time();
         header('Location: ' . $url);
         exit;
     }
@@ -57,13 +58,20 @@ class GoogleAuth {
     public function callback() {
         $state = isset($_GET['state']) ? $_GET['state'] : '';
         if (!$state || !isset($_SESSION['google_oauth2state']) || $state !== $_SESSION['google_oauth2state']) {
-            unset($_SESSION['google_oauth2state']);
-            unset($_SESSION['google_oauth2_pkce_verifier']);
+            unset($_SESSION['google_oauth2state'], $_SESSION['google_oauth2_pkce_verifier'], $_SESSION['google_oauth2_state_time']);
             $_SESSION['google_oauth_error'] = 'Invalid OAuth state. Please try again.';
             header('Location: /request-access');
             exit;
         }
-        unset($_SESSION['google_oauth2state']);
+
+        $state_age = time() - ($_SESSION['google_oauth2_state_time'] ?? 0);
+        if ($state_age > 300) {
+            unset($_SESSION['google_oauth2state'], $_SESSION['google_oauth2_pkce_verifier'], $_SESSION['google_oauth2_state_time']);
+            $_SESSION['google_oauth_error'] = 'Authentication request expired. Please try again.';
+            header('Location: /request-access');
+            exit;
+        }
+        unset($_SESSION['google_oauth2state'], $_SESSION['google_oauth2_state_time']);
 
         if (isset($_GET['error'])) {
             unset($_SESSION['google_oauth2_pkce_verifier']);
