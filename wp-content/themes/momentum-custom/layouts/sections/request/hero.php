@@ -10,7 +10,7 @@ $website_notification = get_field('website_notification' , 'options');
 <section id="signup" class="signup-hero <?php if($website_notification): echo "add-margin"; endif; ?>" style="background-image:url('<?php if (!empty($background_image)): echo $background_image['url']; endif; ?>')">
   <div class="background-overlay site-padding">
     <div class="container large">
-      <div class="row align-items-center">
+      <div class="row align-items-start">
         <div data-aos-duration="1500" data-aos="fade-right" class="col-lg-6 pr-lg-4">
           <?php get_template_part('layouts/sections/global/breadcrumbs'); ?>
           <h1 class="mt-4"><?php echo $title ?> </h1>
