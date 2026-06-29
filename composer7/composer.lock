@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "02f70a41b4f4893e2ea2800db259eeb2",
+    "content-hash": "6fa3fa7ac5009a1528a4f07dee358cb8",
     "packages": [
         {
             "name": "dompdf/dompdf",
@@ -644,6 +644,61 @@
                 "source": "https://github.com/thephpleague/oauth2-client/tree/2.9.0"
             },
             "time": "2025-11-25T22:17:17+00:00"
+        },
+        {
+            "name": "league/oauth2-google",
+            "version": "4.2.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/thephpleague/oauth2-google.git",
+                "reference": "72be69505f890ea8b6d4e716f619b3c10a1f5010"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/thephpleague/oauth2-google/zipball/72be69505f890ea8b6d4e716f619b3c10a1f5010",
+                "reference": "72be69505f890ea8b6d4e716f619b3c10a1f5010",
+                "shasum": ""
+            },
+            "require": {
+                "league/oauth2-client": "^2.0 || ^3.0",
+                "php": "^7.3 || ^8.0"
+            },
+            "require-dev": {
+                "eloquent/phony-phpunit": "^6.0 || ^7.1",
+                "phpunit/phpunit": "^8.0 || ^9.0",
+                "squizlabs/php_codesniffer": "^3.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "League\\OAuth2\\Client\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Woody Gilk",
+                    "email": "hello@shadowhand.com",
+                    "homepage": "https://shadowhand.com"
+                }
+            ],
+            "description": "Google OAuth 2.0 Client Provider for The PHP League OAuth2-Client",
+            "keywords": [
+                "Authentication",
+                "authorization",
+                "client",
+                "google",
+                "oauth",
+                "oauth2"
+            ],
+            "support": {
+                "issues": "https://github.com/thephpleague/oauth2-google/issues",
+                "source": "https://github.com/thephpleague/oauth2-google/tree/4.2.0"
+            },
+            "time": "2026-03-09T09:36:58+00:00"
         },
         {
             "name": "masterminds/html5",
@@ -1328,10 +1383,10 @@
     "packages-dev": [],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": [],
     "prefer-stable": false,
     "prefer-lowest": false,
-    "platform": {},
-    "platform-dev": {},
-    "plugin-api-version": "2.6.0"
+    "platform": [],
+    "platform-dev": [],
+    "plugin-api-version": "2.3.0"
 }
