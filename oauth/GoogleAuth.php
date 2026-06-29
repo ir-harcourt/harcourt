@@ -1,5 +1,8 @@
 <?php
+require_once __DIR__ . '/PkceTrait.php';
+
 class GoogleAuth {
+    use PkceTrait;
     private $clientId;
     private $clientSecret;
     private $scopes = ['openid', 'profile', 'email'];
@@ -31,14 +34,6 @@ class GoogleAuth {
             'clientSecret' => $this->clientSecret,
             'redirectUri'  => $this->redirectUri(),
         ]);
-    }
-
-    private function generatePkceVerifier() {
-        return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
-    }
-
-    private function generatePkceChallenge($verifier) {
-        return rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
     }
 
     public function init() {

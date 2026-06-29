@@ -1,5 +1,8 @@
 <?php
+require_once __DIR__ . '/PkceTrait.php';
+
 class MicrosoftAuth {
+    use PkceTrait;
     private $clientId;
     private $tenantId;
     private $clientSecret;
@@ -61,14 +64,6 @@ class MicrosoftAuth {
             throw new \Exception('Graph API error: ' . ($data['error']['message'] ?? $response));
         }
         return $data;
-    }
-
-    private function generatePkceVerifier() {
-        return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
-    }
-
-    private function generatePkceChallenge($verifier) {
-        return rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
     }
 
     public function init() {

@@ -14,7 +14,7 @@ if ((isset($_SERVER['HTTP_X_REQUESTED_WITH'])) && ($_SERVER['REQUEST_METHOD'] ==
         $comment = trim($_POST['comment']);
         if (!strlen($domain)) {
             $results['blacklist_message'] = "<span style='color:red;'>Domain is required</span>";
-        } elseif (!preg_match('/^(?:[a-z0-9\-]+\.)+[a-z0-9\-]{2,63}$/i', $domain)) {
+        } elseif (!preg_match('/^(?:[a-z0-9](?:[a-z0-9\-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9\-]*[a-z0-9])?$/i', $domain)) {
             $results['blacklist_message'] = "<span style='color:red;'>Invalid domain format</span>";
         } else {
             $database->blacklist->read($domain, "domain");
@@ -167,7 +167,7 @@ function blacklist_output($page=1, $search='') {
         while ($database->blacklist->fetch = $database->blacklist->fetch_array()) {
             $database->blacklist->fetch();
             $results[] = "<tr>";
-            $results[] = "<td class=center>" . $forms->button("Remove", array("onclick" => "blacklist_remove(" . $database->blacklist->data->id . ",'" . addslashes($database->blacklist->data->domain) . "');", "style" => "padding:5px 10px;cursor:pointer;")) . "</td>";
+            $results[] = "<td class=center>" . $forms->button("Remove", array("onclick" => "blacklist_remove(" . $database->blacklist->data->id . "," . json_encode($database->blacklist->data->domain) . ");", "style" => "padding:5px 10px;cursor:pointer;")) . "</td>";
             $results[] = "<td>" . htmlspecialchars($database->blacklist->data->domain) . "</td>";
             $results[] = "<td>" . htmlspecialchars($database->blacklist->data->comment) . "</td>";
             $results[] = "<td class=center>" . ($database->blacklist->data->created ? date("m/d/Y h:i A", $database->blacklist->data->created) : "") . "</td>";
