@@ -1,6 +1,7 @@
 <?php
 require_once "scs_header.php";
 $database->blacklist->install();
+$database->user->access("Administrator");
 if ((isset($_SERVER['HTTP_X_REQUESTED_WITH'])) && ($_SERVER['REQUEST_METHOD'] == "POST")) {
     $results = array();
     $bl_page   = max(1, intval($_POST['page'] ?? 1));
@@ -53,7 +54,6 @@ if ((isset($_SERVER['HTTP_X_REQUESTED_WITH'])) && ($_SERVER['REQUEST_METHOD'] ==
     $results['blacklist_content'] = blacklist_output($bl_page, $bl_search);
     die(json_encode($results));
 }
-$database->user->access("Administrator");
 $forms->title("Domain Blacklist");
 $menu->head();
 print $forms->message();

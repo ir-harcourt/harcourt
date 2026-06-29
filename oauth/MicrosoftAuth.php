@@ -7,7 +7,10 @@ class MicrosoftAuth {
     private $scopes = ['openid', 'profile', 'email', 'User.Read'];
 
     public function __construct() {
-        $env = parse_ini_file($_SERVER['DOCUMENT_ROOT'] . '/.env');
+        $env = @parse_ini_file($_SERVER['DOCUMENT_ROOT'] . '/.env');
+        if ($env === false) {
+            throw new \RuntimeException('OAuth configuration is missing. Contact the administrator.');
+        }
         $this->clientId     = $env['MICROSOFT_CLIENT_ID'];
         $this->tenantId     = $env['MICROSOFT_TENANT_ID'];
         $this->clientSecret = $env['MICROSOFT_CLIENT_SECRET'];
@@ -19,7 +22,7 @@ class MicrosoftAuth {
     }
 
     private function composerPath() {
-        return $_SERVER['DOCUMENT_ROOT'] . (phpversion() < '8' ? '/composer7' : '/composer8');
+        return $_SERVER['DOCUMENT_ROOT'] . (version_compare(phpversion(), '8', '<') ? '/composer7' : '/composer8');
     }
 
     private function provider() {
@@ -109,7 +112,7 @@ class MicrosoftAuth {
 
         if (isset($_GET['error'])) {
             unset($_SESSION['oauth2_pkce_verifier'], $_SESSION['oauth2_nonce']);
-            $_SESSION['microsoft_oauth_error'] = htmlspecialchars($_GET['error_description'] ?? $_GET['error']);
+            $_SESSION['microsoft_oauth_error'] = $_GET['error_description'] ?? $_GET['error'];
             header('Location: /request-access');
             exit;
         }

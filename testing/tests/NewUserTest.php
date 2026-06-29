@@ -460,7 +460,7 @@ class NewUserTest extends TestCase
         $_SESSION['microsoft_oauth_error'] = 'Something went wrong';
 
         ob_start();
-        $this->sut->process_microsoft_oauth();
+        $this->sut->process_oauth('Microsoft');
         $output = ob_get_clean();
 
         $this->assertStringContainsString('Something went wrong', $output);
@@ -473,7 +473,7 @@ class NewUserTest extends TestCase
         $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => '']);
 
         ob_start();
-        $this->sut->process_microsoft_oauth();
+        $this->sut->process_oauth('Microsoft');
         $output = ob_get_clean();
 
         $this->assertStringContainsStringIgnoringCase('did not provide an email', $output);
@@ -489,7 +489,7 @@ class NewUserTest extends TestCase
         $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'known@harcourt.co']);
 
         ob_start();
-        $this->sut->process_microsoft_oauth();
+        $this->sut->process_oauth('Microsoft');
         $output = ob_get_clean();
 
         $this->assertStringContainsString('Congratulations, you now have access!', $output);
@@ -505,7 +505,7 @@ class NewUserTest extends TestCase
         $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'new.person@harcourt.co']);
 
         ob_start();
-        $this->sut->process_microsoft_oauth();
+        $this->sut->process_oauth('Microsoft');
         $output = ob_get_clean();
 
         $this->assertStringContainsString('Congratulations, you now have access!', $output);
@@ -520,7 +520,7 @@ class NewUserTest extends TestCase
         $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'pending.person@example.com']);
 
         ob_start();
-        $this->sut->process_microsoft_oauth();
+        $this->sut->process_oauth('Microsoft');
         $output = ob_get_clean();
 
         $this->assertStringContainsStringIgnoringCase('pending approval', $output);
@@ -540,7 +540,7 @@ class NewUserTest extends TestCase
         ]);
 
         ob_start();
-        $this->sut->process_microsoft_oauth();
+        $this->sut->process_oauth('Microsoft');
         $output = ob_get_clean();
 
         $this->assertStringContainsString('Congratulations, your access request has been submitted!', $output);
@@ -553,7 +553,7 @@ class NewUserTest extends TestCase
     {
         global $database;
 
-        $output = $this->sut->grant_microsoft_remote_access('user@harcourt.co', TRUE);
+        $output = $this->sut->grant_oauth_remote_access('user@harcourt.co', TRUE);
 
         $this->assertSame('user@harcourt.co', $database->remote->data->email);
         $this->assertSame(dechex(strtotime('+1 year')), $database->remote->data->unlock_code);
@@ -567,7 +567,7 @@ class NewUserTest extends TestCase
         global $database;
         $database->user->meta->error = 1;
 
-        $result = $this->sut->process_microsoft_register('fail@example.com', $this->oauthData(['email' => 'fail@example.com']));
+        $result = $this->sut->process_oauth_register('fail@example.com', $this->oauthData(['email' => 'fail@example.com']));
 
         $this->assertStringContainsStringIgnoringCase('Internal error', $result);
     }
@@ -576,7 +576,7 @@ class NewUserTest extends TestCase
     {
         global $database;
 
-        $result = $this->sut->process_microsoft_register('jane@acme.org', $this->oauthData([
+        $result = $this->sut->process_oauth_register('jane@acme.org', $this->oauthData([
             'email'        => 'jane@acme.org',
             'display_name' => 'Jane Doe',
             'company_name' => 'Acme Org',

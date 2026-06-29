@@ -123,7 +123,7 @@ class remote_access_class {
         $database->user->data->last_login=strtotime("now");
         $database->user->data->recaptcha_score=$this->recaptcha->score;
         $database->user->update(FALSE);
-        if ($database->user->meta->error) return "Interal error detected";
+        if ($database->user->meta->error) return "Internal error detected";
         $database->user->data->ip=harcourt_remote_addr();
         $menu->cookie($database->profile->data->email);
         $_SESSION['user']=$database->user->data;
@@ -287,10 +287,6 @@ class remote_access_class {
         print "</div>";
         if (fn_development_server()) $menu->copyright();
     }
-    function process_microsoft_oauth() {
-        $this->process_oauth('Microsoft');
-    }
-
     function process_oauth($provider) {
         global $database, $forms, $menu;
         $this->trace[]=__FUNCTION__;
@@ -355,10 +351,6 @@ class remote_access_class {
         if (fn_development_server()) $menu->copyright();
     }
 
-    function grant_microsoft_remote_access($email, $is_update) {
-        return $this->grant_oauth_remote_access($email, $is_update);
-    }
-
     function grant_oauth_remote_access($email, $is_update) {
         global $database, $menu;
         $this->trace[]=__FUNCTION__;
@@ -392,10 +384,6 @@ class remote_access_class {
             . '}'
             . '</script>';
         return $results;
-    }
-
-    function process_microsoft_register($email, $oauth) {
-        return $this->process_oauth_register($email, $oauth, 'Microsoft');
     }
 
     function process_oauth_register($email, $oauth, $provider = 'Microsoft') {
