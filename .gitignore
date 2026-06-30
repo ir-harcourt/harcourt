@@ -20,8 +20,9 @@ wp-content/uploads/
 error_log 
 *.log 
 
-# Config File 
-wp-config.php 
+# Config File
+wp-config.php
+.env 
 
 # For FTP Access Only
 overview_documents
@@ -43,3 +44,5 @@ composer8/
 
 # Images Subcategory
 images_subcategory/
+
+sf.txt
