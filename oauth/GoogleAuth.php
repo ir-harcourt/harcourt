@@ -1,5 +1,8 @@
 <?php
+require_once __DIR__ . '/PkceTrait.php';
+
 class GoogleAuth {
+    use PkceTrait;
     private $clientId;
     private $clientSecret;
     private $scopes = ['openid', 'profile', 'email'];
@@ -7,7 +10,10 @@ class GoogleAuth {
     private $appUrl;
 
     public function __construct() {
-        $env = parse_ini_file($_SERVER['DOCUMENT_ROOT'] . '/.env');
+        $env = @parse_ini_file($_SERVER['DOCUMENT_ROOT'] . '/.env');
+        if ($env === false) {
+            throw new \RuntimeException('OAuth configuration is missing. Contact the administrator.');
+        }
         $this->clientId     = $env['GOOGLE_CLIENT_ID'];
         $this->clientSecret = $env['GOOGLE_CLIENT_SECRET'];
         $this->appUrl       = rtrim($env['APP_URL'], '/');
@@ -18,7 +24,7 @@ class GoogleAuth {
     }
 
     private function composerPath() {
-        return $_SERVER['DOCUMENT_ROOT'] . (phpversion() < '8' ? '/composer7' : '/composer8');
+        return $_SERVER['DOCUMENT_ROOT'] . (version_compare(phpversion(), '8', '<') ? '/composer7' : '/composer8');
     }
 
     private function provider() {
@@ -28,14 +34,6 @@ class GoogleAuth {
             'clientSecret' => $this->clientSecret,
             'redirectUri'  => $this->redirectUri(),
         ]);
-    }
-
-    private function generatePkceVerifier() {
-        return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
-    }
-
-    private function generatePkceChallenge($verifier) {
-        return rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
     }
 
     public function init() {
@@ -75,7 +73,7 @@ class GoogleAuth {
 
         if (isset($_GET['error'])) {
             unset($_SESSION['google_oauth2_pkce_verifier']);
-            $_SESSION['google_oauth_error'] = htmlspecialchars($_GET['error_description'] ?? $_GET['error']);
+            $_SESSION['google_oauth_error'] = $_GET['error_description'] ?? $_GET['error'];
             header('Location: /request-access');
             exit;
         }
