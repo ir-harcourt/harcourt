@@ -13,12 +13,12 @@ development	http://localhost:8085
 production	https://harcourt.co
 */
 
-if ($_SERVER['SERVER_ADMIN'] != "host@suburbancomputer.com") {
+if (($_SERVER['SERVER_ADMIN'] ?? '') != "host@suburbancomputer.com") {
 	ini_set("display_errors", "1");
 	ini_set("error_log", $_SERVER['DOCUMENT_ROOT'] . "/error.log");
 }
 
-print header("Access-Control-Allow-Origin: *");
+if (!ob_get_level()) ob_start();
 
 ini_set('default_charset', 'UTF-8');
 ini_set('memory_limit', '512M');
@@ -31,9 +31,11 @@ set_include_path(
     PATH_SEPARATOR . $_SERVER['DOCUMENT_ROOT'] . "/composer" .
     PATH_SEPARATOR . $_SERVER['DOCUMENT_ROOT'] . "/scsps");
 
+$_scs_https = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['SERVER_PORT'] ?? 80) == 443;
 ini_set('session.cookie_samesite', 'Lax');
-ini_set('session.cookie_secure', 'true');
+ini_set('session.cookie_secure', $_scs_https ? '1' : '0');
 ini_set('session.cookie_httponly', 'true');
+unset($_scs_https);
 
 // standard library
 require_once "database_mysqli.php";
@@ -63,6 +65,7 @@ require_once "classes/orderhd.php";
 require_once "classes/orderln.php";
 require_once "classes/search.php";
 require_once "classes/remote.php";
+require_once "classes/blacklist.php";
 require_once "classes/user.php";
 require_once "classes/profile.php";
 require_once "classes/search.php";
@@ -73,16 +76,13 @@ require_once "classes/portalcontent.php";
 require_once "classes/portalcategory.php";
 require_once "classes/portalitem.php";
 
-switch (TRUE) {
-  case (fn_development_server()):
-	$database->connect("localhost","demo","suburban","harcourt");
-    break;
-  case ($_SERVER['HTTP_HOST'] == "stage.harcourt.co"):
-	$database->connect("localhost","harcou6_wp_kggm0","Va#6rmW@36fQ9LrG","harcou6_wp_bllqe");
-    break;
-  default:
-	$database->connect("localhost","harcou6_wp_kggm0","Va#6rmW@36fQ9LrG","harcou6_wp_bllqe");
+$env = parse_ini_file($_SERVER['DOCUMENT_ROOT'] . '/.env');
+$_cors_origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if ($_cors_origin && $_cors_origin === rtrim($env['APP_URL'], '/')) {
+    header('Access-Control-Allow-Origin: ' . $_cors_origin);
 }
+unset($_cors_origin);
+$database->connect($env['DB_HOST'], $env['DB_USER'], $env['DB_PASS'], $env['DB_NAME']);
 $database->set_charset("utf8mb4");
 
 $database->registry=new registry_class();
