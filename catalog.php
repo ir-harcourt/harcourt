@@ -711,7 +711,7 @@ class catalog_output_class {
 			$results[]="</div>";
             if ($blocked) {
                 $results[]="<div class='catalog_category_overlay'>";
-                $results[]="<div class='catalog_category_overlay_message'>Integrator Agreement Required for Access. " . fn_href("Contact Us","/contact_us.php") . " for more information.</div>";
+                $results[]="<div class='catalog_category_overlay_message'>Integrator Agreement Required for Access. " . fn_href("Contact Us","/contact") . " for more information.</div>";
                 $results[]="</div>";
             }
             $results[]="</div>";
