@@ -167,7 +167,7 @@ function blacklist_output($page=1, $search='') {
         while ($database->blacklist->fetch = $database->blacklist->fetch_array()) {
             $database->blacklist->fetch();
             $results[] = "<tr>";
-            $results[] = "<td class=center>" . $forms->button("Remove", array("onclick" => "blacklist_remove(" . $database->blacklist->data->id . "," . json_encode($database->blacklist->data->domain) . ");", "style" => "padding:5px 10px;cursor:pointer;")) . "</td>";
+            $results[] = "<td class=center>" . $forms->button("Remove", array("onclick" => "blacklist_remove(" . $database->blacklist->data->id . "," . htmlspecialchars(json_encode($database->blacklist->data->domain)) . ");", "style" => "padding:5px 10px;cursor:pointer;")) . "</td>";
             $results[] = "<td>" . htmlspecialchars($database->blacklist->data->domain) . "</td>";
             $results[] = "<td>" . htmlspecialchars($database->blacklist->data->comment) . "</td>";
             $results[] = "<td class=center>" . ($database->blacklist->data->created ? date("m/d/Y h:i A", $database->blacklist->data->created) : "") . "</td>";
