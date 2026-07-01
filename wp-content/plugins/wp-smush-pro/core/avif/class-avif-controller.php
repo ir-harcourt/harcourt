@@ -10,10 +10,10 @@ use Smush\Core\Stats\Global_Stats;
 use Smush\Core\Stats\Media_Item_Optimization_Global_Stats_Persistable;
 
 class Avif_Controller extends Controller {
-	const AVIF_OPTIMIZATION_ORDER  = 30;
-	const AVIF_TRANSFORM_PRIORITY  = 40;
-	const AVIF_CONFIGURATION_ORDER = 20;
-	const GLOBAL_STATS_OPTION_ID   = 'wp-smush-avif-global-stats';
+	private static $avif_optimization_order = 30;
+	private static $avif_transform_priority = 40;
+	private static $avif_configuration_order = 20;
+	private static $global_stats_option_id = 'wp-smush-avif-global-stats';
 
 	/**
 	 * @var Avif_Helper
@@ -52,17 +52,17 @@ class Avif_Controller extends Controller {
 		$this->register_filter( 'wp_smush_optimizations', array(
 			$this,
 			'add_avif_optimization',
-		), self::AVIF_OPTIMIZATION_ORDER, 2 );
+		), self::$avif_optimization_order, 2 );
 
 		$this->register_filter( 'wp_smush_content_transforms', array(
 			$this,
 			'add_avif_transform',
-		), self::AVIF_TRANSFORM_PRIORITY );
+		), self::$avif_transform_priority );
 
 		$this->register_filter( 'wp_smush_next_gen_configuration_objects', array(
 			$this,
 			'add_avif_configuration',
-		), self::AVIF_CONFIGURATION_ORDER );
+		), self::$avif_configuration_order );
 
 		$this->register_action( 'wp_smush_before_restore_backup', array(
 			$this,
@@ -151,7 +151,7 @@ class Avif_Controller extends Controller {
 	}
 
 	public function add_avif_global_stats( $stats ) {
-		$stats[ Avif_Optimization::OPTIMIZATION_KEY ] = new Media_Item_Optimization_Global_Stats_Persistable( self::GLOBAL_STATS_OPTION_ID );
+		$stats[ Avif_Optimization::get_key() ] = new Media_Item_Optimization_Global_Stats_Persistable( self::$global_stats_option_id );
 
 		return $stats;
 	}
@@ -195,7 +195,7 @@ class Avif_Controller extends Controller {
 	 * Triggered by the "Delete AVIF images" button in the avif tab.
 	 */
 	public function ajax_delete_all_avif_files() {
-		check_ajax_referer( 'save_wp_smush_options' );
+		check_ajax_referer( 'wp-smush-ajax' );
 
 		$capability = is_multisite() ? 'manage_network' : 'manage_options';
 

@@ -794,7 +794,7 @@ class CDN_Srcset_Controller extends Controller {
 	/**
 	 * @return int
 	 */
-	private function get_cdn_srcset_priority(): int {
+	private function get_cdn_srcset_priority() {
 		return defined( 'WP_SMUSH_CDN_DELAY_SRCSET' ) && WP_SMUSH_CDN_DELAY_SRCSET ? 1000 : 99;
 	}
 

@@ -14,14 +14,13 @@
  *
  * @wordpress-plugin
  * Plugin Name:       Olark Live Chat
- * Plugin URI:        https://github.com/olark/wordpress-plugin/edit/master/olark-wp/
  * Description:       This plugin is designed to allow you to add an Olark chatbox to your WordPress site easily! Simply activate and add your Site ID from Olark in the settings!
- * Version:           1.0.9
+ * Version:           1.0.10
  * Author:            Olark
  * Author URI:        https://www.olark.com?rid=integration_plugin_wordpress
  * License:           GPL-2.0+
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
- * Text Domain:       olark-wp
+ * Text Domain:       olark-live-chat
  * Domain Path:       /languages
  */
 

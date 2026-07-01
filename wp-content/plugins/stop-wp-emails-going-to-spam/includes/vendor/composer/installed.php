@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => 'fullworks/stop-wp-emails-going-to-spam',
-        'pretty_version' => 'dev-main',
-        'version' => 'dev-main',
-        'reference' => 'b2f5419f6acbcc39e1983a1a71cc6ffae3aee9d6',
+        'pretty_version' => 'v2.2.1',
+        'version' => '2.2.1.0',
+        'reference' => '13913c6d7644f92d47d1f7646e2db0838825748b',
         'type' => 'wordpress-plugin',
         'install_path' => __DIR__ . '/../../../',
         'aliases' => array(),
@@ -11,9 +11,9 @@
     ),
     'versions' => array(
         'alanef/free_plugin_lib' => array(
-            'pretty_version' => 'v1.0.1',
-            'version' => '1.0.1.0',
-            'reference' => 'ed52c33c73999a1fe1ee5a1b00581b9462111ac8',
+            'pretty_version' => '1.2.0',
+            'version' => '1.2.0.0',
+            'reference' => '9658ce69f3ca376f52fa2291599efb3f1218ef57',
             'type' => 'library',
             'install_path' => __DIR__ . '/../alanef/free_plugin_lib',
             'aliases' => array(),
@@ -40,9 +40,9 @@
             'dev_requirement' => false,
         ),
         'fullworks/stop-wp-emails-going-to-spam' => array(
-            'pretty_version' => 'dev-main',
-            'version' => 'dev-main',
-            'reference' => 'b2f5419f6acbcc39e1983a1a71cc6ffae3aee9d6',
+            'pretty_version' => 'v2.2.1',
+            'version' => '2.2.1.0',
+            'reference' => '13913c6d7644f92d47d1f7646e2db0838825748b',
             'type' => 'wordpress-plugin',
             'install_path' => __DIR__ . '/../../../',
             'aliases' => array(),

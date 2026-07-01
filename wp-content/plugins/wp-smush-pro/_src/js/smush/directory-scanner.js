@@ -74,8 +74,12 @@ const DirectoryScanner = ( totalSteps, currentStep ) => {
 
 		onFinish() {
 			WP_Smush.directory.updateProgressBar( 100 );
-			window.location.href =
-				window.wp_smush_msgs.directory_url + '&scan=done';
+			const directorySmushUrl = `${ self.wp_smush_msgs.bulk_smush_url }&smush__directory-scan=done#directory_smush-settings-row`;
+			if ( window.location.href === directorySmushUrl ) {
+				window.location.reload();
+			} else {
+				window.location.href = directorySmushUrl;
+			}
 		},
 
 		/**
@@ -88,7 +92,6 @@ const DirectoryScanner = ( totalSteps, currentStep ) => {
 
 			// Add the error class to show/hide elements in the dialog.
 			dialog
-				.removeClass( 'wp-smush-exceed-limit' )
 				.addClass( 'wp-smush-scan-error' );
 
 			// Add the error status and description to the error message.
@@ -108,7 +111,6 @@ const DirectoryScanner = ( totalSteps, currentStep ) => {
 		limitReached() {
 			const dialog = jQuery( '#wp-smush-progress-dialog' );
 
-			dialog.addClass( 'wp-smush-exceed-limit' );
 			dialog
 				.find( '#cancel-directory-smush' )
 				.attr( 'data-tooltip', window.wp_smush_msgs.bulk_resume );
@@ -125,7 +127,6 @@ const DirectoryScanner = ( totalSteps, currentStep ) => {
 			const dialog = jQuery( '#wp-smush-progress-dialog' );
 			const resume = dialog.find( '#cancel-directory-smush-disabled' );
 
-			dialog.removeClass( 'wp-smush-exceed-limit' );
 			dialog
 				.find( '.sui-box-body .sui-icon-play' )
 				.removeClass( 'sui-icon-play' )

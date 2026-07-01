@@ -11,10 +11,10 @@ use Smush\Core\Stats\Global_Stats;
 use Smush\Core\Stats\Media_Item_Optimization_Global_Stats_Persistable;
 
 class Webp_Controller extends Controller {
-	const WEBP_OPTIMIZATION_ORDER = 20;
-	const WEBP_TRANSFORM_PRIORITY = 50;
-	const WEBP_CONFIGURATION_ORDER = 10;
-	const GLOBAL_STATS_OPTION_ID = 'wp-smush-webp-global-stats';
+	private static $webp_optimization_order = 20;
+	private static $webp_transform_priority = 50;
+	private static $webp_configuration_order = 10;
+	private static $global_stats_option_id = 'wp-smush-webp-global-stats';
 	/**
 	 * @var Webp_Helper
 	 */
@@ -60,7 +60,7 @@ class Webp_Controller extends Controller {
 		$this->register_filter( 'wp_smush_optimizations', array(
 			$this,
 			'add_webp_optimization',
-		), self::WEBP_OPTIMIZATION_ORDER, 2 );
+		), self::$webp_optimization_order, 2 );
 		$this->register_filter( 'wp_smush_global_optimization_stats', array( $this, 'add_webp_global_stats' ) );
 		$this->register_action( 'wp_smush_before_restore_backup', array(
 			$this,
@@ -73,12 +73,12 @@ class Webp_Controller extends Controller {
 		$this->register_filter( 'wp_smush_content_transforms', array(
 			$this,
 			'add_webp_transform',
-		), self::WEBP_TRANSFORM_PRIORITY );
+		), self::$webp_transform_priority );
 
 		$this->register_filter( 'wp_smush_next_gen_configuration_objects', array(
 			$this,
 			'add_webp_configuration',
-		), self::WEBP_CONFIGURATION_ORDER );
+		), self::$webp_configuration_order );
 
 		/** Ajax actions */
 		$this->register_action( 'wp_ajax_smush_webp_toggle', array( $this, 'ajax_webp_toggle' ) );
@@ -92,7 +92,8 @@ class Webp_Controller extends Controller {
 			'ajax_apply_htaccess_rules',
 		) );
 		$this->register_action( 'wp_ajax_smush_webp_delete_all', array( $this, 'ajax_delete_all_webp_files' ) );
-		$this->register_action( 'wp_ajax_smush_toggle_webp_wizard', array( $this, 'ajax_toggle_wizard' ) );
+		$this->register_action( 'wp_ajax_smush_hide_webp_wizard', array( $this, 'ajax_hide_wizard' ) );
+		$this->register_action( 'wp_ajax_smush_show_webp_wizard', array( $this, 'ajax_show_wizard' ) );
 		// TODO: clean rules from .htaccess on deactivate plugin.
 
 		$this->register_action( 'wp_enqueue_scripts', array( $this, 'maybe_enqueue_fallback_js' ) );
@@ -149,7 +150,7 @@ class Webp_Controller extends Controller {
 	}
 
 	public function add_webp_global_stats( $stats ) {
-		$stats[ Webp_Optimization::OPTIMIZATION_KEY ] = new Media_Item_Optimization_Global_Stats_Persistable( self::GLOBAL_STATS_OPTION_ID );
+		$stats[ Webp_Optimization::get_key() ] = new Media_Item_Optimization_Global_Stats_Persistable( self::$global_stats_option_id );
 
 		return $stats;
 	}
@@ -213,7 +214,7 @@ class Webp_Controller extends Controller {
 	 * Handles "Re-Check Status" button press on the WebP meta box.
 	 */
 	public function ajax_get_server_configuration_status() {
-		if ( ! check_ajax_referer( 'wp-smush-webp-nonce', false, false ) || ! Helper::is_user_allowed( 'manage_options' ) ) {
+		if ( ! check_ajax_referer( 'wp-smush-ajax', false, false ) || ! Helper::is_user_allowed( 'manage_options' ) ) {
 			wp_send_json_error( esc_html__( "Either the nonce expired or you can't modify options. Please reload the page and try again.", 'wp-smushit' ) );
 		}
 
@@ -230,14 +231,14 @@ class Webp_Controller extends Controller {
 	 * Handles the "Apply Rules" button press on the WebP meta box.
 	 */
 	public function ajax_apply_htaccess_rules() {
-		if ( ! check_ajax_referer( 'wp-smush-webp-nonce', false, false ) || ! Helper::is_user_allowed( 'manage_options' ) ) {
+		if ( ! check_ajax_referer( 'wp-smush-ajax', false, false ) || ! Helper::is_user_allowed( 'manage_options' ) ) {
 			wp_send_json_error( "Either the nonce expired or you can't modify options. Please reload the page and try again." );
 		}
 
 		$last_error = $this->configuration->server_configuration()->apply_apache_rewrite_rules();
 
 		if ( ! empty( $last_error ) ) {
-			wp_send_json_error( wp_kses_post( $last_error ) );
+			wp_send_json_error( esc_html( $last_error ) );
 		}
 
 		wp_send_json_success();
@@ -248,7 +249,7 @@ class Webp_Controller extends Controller {
 	 * Triggered by the "Delete WebP images" button in the webp tab.
 	 */
 	public function ajax_delete_all_webp_files() {
-		check_ajax_referer( 'save_wp_smush_options' );
+		check_ajax_referer( 'wp-smush-ajax' );
 
 		$capability = is_multisite() ? 'manage_network' : 'manage_options';
 
@@ -266,9 +267,17 @@ class Webp_Controller extends Controller {
 		wp_send_json_success();
 	}
 
-	public function ajax_toggle_wizard() {
-		if ( check_ajax_referer( 'wp-smush-webp-nonce', false, false ) && Helper::is_user_allowed( 'manage_options' ) ) {
-			$this->configuration->toggle_wizard();
+	public function ajax_show_wizard() {
+		if ( check_ajax_referer( 'wp-smush-ajax', false, false ) && Helper::is_user_allowed( 'manage_options' ) ) {
+			$this->configuration->show_wizard();
+
+			wp_send_json_success();
+		}
+	}
+
+	public function ajax_hide_wizard() {
+		if ( check_ajax_referer( 'wp-smush-ajax', false, false ) && Helper::is_user_allowed( 'manage_options' ) ) {
+			$this->configuration->hide_wizard();
 
 			wp_send_json_success();
 		}

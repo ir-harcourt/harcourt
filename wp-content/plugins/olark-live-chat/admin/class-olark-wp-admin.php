@@ -115,7 +115,7 @@ class Olark_Wp_Admin {
 	public function add_action_links( $links ) {
 
 		$settings_link = array(
-		'<a href="' . admin_url( 'options-general.php?page=' . $this->plugin_name ) . '">' . __('Settings', $this->plugin_name) . '</a>',
+		'<a href="' . admin_url( 'options-general.php?page=' . $this->plugin_name ) . '">' . __('Settings', 'olark-live-chat') . '</a>',
 		);
 		return array_merge(  $settings_link, $links );
 	}
@@ -128,14 +128,14 @@ class Olark_Wp_Admin {
     // All checkboxes inputs
     $valid = array();
 
-    $valid['olark_site_ID'] = esc_textarea($input['olark_site_ID']);
+    $valid['olark_site_ID'] = esc_textarea(isset($input['olark_site_ID']) ? $input['olark_site_ID'] : '');
 	  $valid['enable_olark'] = (isset($input['enable_olark']) && !empty($input['enable_olark'])) ? 1 : 0;
     $valid['enable_cartsaver'] = (isset($input['enable_cartsaver']) && !empty($input['enable_cartsaver'])) ? 1 : 0;
     $valid['start_expanded'] = (isset($input['start_expanded']) && !empty($input['start_expanded'])) ? 1 : 0;
     $valid['detached_chat'] = (isset($input['detached_chat']) && !empty($input['detached_chat'])) ? 1 : 0;
     $valid['override_lang'] = (isset($input['override_lang']) && !empty($input['override_lang'])) ? 1 : 0;
-		$valid['olark_lang'] = esc_textarea($input['olark_lang']);
-		$valid['olark_api'] = esc_textarea($input['olark_api']);
+		$valid['olark_lang'] = esc_textarea(isset($input['olark_lang']) ? $input['olark_lang'] : 'en-US');
+		$valid['olark_api'] = esc_textarea(isset($input['olark_api']) ? $input['olark_api'] : '');
 		$valid['olark_mobile'] = (isset($input['olark_mobile']) && !empty($input['olark_mobile'])) ? 1 : 0;
 
     return $valid;

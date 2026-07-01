@@ -1,4 +1,5 @@
 <?php
+
 // phpcs:disable Yoast.NamingConventions.NamespaceName.TooLong -- Needed in the folder structure.
 namespace Yoast\WP\SEO\AI_Authorization\User_Interface;
 
@@ -10,6 +11,7 @@ use Yoast\WP\SEO\AI_Authorization\Infrastructure\Code_Verifier_User_Meta_Reposit
 use Yoast\WP\SEO\AI_Authorization\Infrastructure\Refresh_Token_User_Meta_Repository_Interface;
 use Yoast\WP\SEO\AI_HTTP_Request\Domain\Exceptions\Unauthorized_Exception;
 use Yoast\WP\SEO\Conditionals\AI_Conditional;
+use Yoast\WP\SEO\Conditionals\Old_Premium_AI_Conditional;
 use Yoast\WP\SEO\Main;
 use Yoast\WP\SEO\Routes\Route_Interface;
 
@@ -30,21 +32,21 @@ abstract class Abstract_Callback_Route implements Route_Interface {
 	 *
 	 * @var Access_Token_User_Meta_Repository_Interface
 	 */
-	private $access_token_repository;
+	protected $access_token_repository;
 
 	/**
 	 * The refresh token repository instance.
 	 *
 	 * @var Refresh_Token_User_Meta_Repository_Interface
 	 */
-	private $refresh_token_repository;
+	protected $refresh_token_repository;
 
 	/**
 	 * The code verifier instance.
 	 *
 	 * @var Code_Verifier_User_Meta_Repository_Interface
 	 */
-	private $code_verifier_repository;
+	protected $code_verifier_repository;
 
 	/**
 	 * Returns the conditionals based in which this loadable should be active.
@@ -52,7 +54,7 @@ abstract class Abstract_Callback_Route implements Route_Interface {
 	 * @return array<string> The conditionals.
 	 */
 	public static function get_conditionals() {
-		return [ AI_Conditional::class ];
+		return [ AI_Conditional::class, Old_Premium_AI_Conditional::class ];
 	}
 
 	/**
@@ -81,16 +83,16 @@ abstract class Abstract_Callback_Route implements Route_Interface {
 	 * @throws RuntimeException If the verification code is not found.
 	 */
 	public function callback( WP_REST_Request $request ): WP_REST_Response {
-		$user_id = $request['user_id'];
+		$user_id = $request->get_param( 'user_id' );
 		try {
 			$code_verifier = $this->code_verifier_repository->get_code_verifier( $user_id );
 
-			if ( $request['code_challenge'] !== \hash( 'sha256', $code_verifier->get_code() ) ) {
+			if ( $request->get_param( 'code_challenge' ) !== \hash( 'sha256', $code_verifier->get_code() ) ) {
 				throw new Unauthorized_Exception( 'Unauthorized' );
 			}
 
-			$this->access_token_repository->store_token( $user_id, $request['access_jwt'] );
-			$this->refresh_token_repository->store_token( $user_id, $request['refresh_jwt'] );
+			$this->access_token_repository->store_token( $user_id, $request->get_param( 'access_jwt' ) );
+			$this->refresh_token_repository->store_token( $user_id, $request->get_param( 'refresh_jwt' ) );
 			$this->code_verifier_repository->delete_code_verifier( $user_id );
 		} catch ( Unauthorized_Exception | RuntimeException $e ) {
 			return new WP_REST_Response( 'Unauthorized.', 401 );
@@ -100,7 +102,7 @@ abstract class Abstract_Callback_Route implements Route_Interface {
 			[
 				'message'       => 'Tokens successfully stored.',
 				'code_verifier' => $code_verifier->get_code(),
-			]
+			],
 		);
 	}
 

@@ -8,7 +8,6 @@ use WPSEO_Utils;
 use Yoast\WP\SEO\AI_Authorization\Infrastructure\Access_Token_User_Meta_Repository_Interface;
 use Yoast\WP\SEO\AI_Authorization\Infrastructure\Code_Verifier_User_Meta_Repository;
 use Yoast\WP\SEO\AI_Authorization\Infrastructure\Refresh_Token_User_Meta_Repository_Interface;
-use Yoast\WP\SEO\AI_Consent\Application\Consent_Handler;
 use Yoast\WP\SEO\AI_Generator\Infrastructure\WordPress_URLs;
 use Yoast\WP\SEO\AI_HTTP_Request\Application\Request_Handler;
 use Yoast\WP\SEO\AI_HTTP_Request\Domain\Exceptions\Bad_Request_Exception;
@@ -44,13 +43,6 @@ class Token_Manager implements Token_Manager_Interface {
 	 * @var Code_Verifier_Handler
 	 */
 	private $code_verifier;
-
-	/**
-	 * The consent handler.
-	 *
-	 * @var Consent_Handler
-	 */
-	private $consent_handler;
 
 	/**
 	 * The refresh token repository.
@@ -92,7 +84,6 @@ class Token_Manager implements Token_Manager_Interface {
 	 *
 	 * @param Access_Token_User_Meta_Repository_Interface  $access_token_repository  The access token repository.
 	 * @param Code_Verifier_Handler                        $code_verifier            The code verifier service.
-	 * @param Consent_Handler                              $consent_handler          The consent handler.
 	 * @param Refresh_Token_User_Meta_Repository_Interface $refresh_token_repository The refresh token repository.
 	 * @param User_Helper                                  $user_helper              The user helper.
 	 * @param Request_Handler                              $request_handler          The request handler.
@@ -102,7 +93,6 @@ class Token_Manager implements Token_Manager_Interface {
 	public function __construct(
 		Access_Token_User_Meta_Repository_Interface $access_token_repository,
 		Code_Verifier_Handler $code_verifier,
-		Consent_Handler $consent_handler,
 		Refresh_Token_User_Meta_Repository_Interface $refresh_token_repository,
 		User_Helper $user_helper,
 		Request_Handler $request_handler,
@@ -111,7 +101,6 @@ class Token_Manager implements Token_Manager_Interface {
 	) {
 		$this->access_token_repository  = $access_token_repository;
 		$this->code_verifier            = $code_verifier;
-		$this->consent_handler          = $consent_handler;
 		$this->refresh_token_repository = $refresh_token_repository;
 		$this->user_helper              = $user_helper;
 		$this->request_handler          = $request_handler;
@@ -156,8 +145,8 @@ class Token_Manager implements Token_Manager_Interface {
 				new Request(
 					'/token/invalidate',
 					$request_body,
-					$request_headers
-				)
+					$request_headers,
+				),
 			);
 		} catch ( Unauthorized_Exception | Forbidden_Exception $e ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch -- Reason: Ignored on purpose.
 			// If the credentials in our request were already invalid, our job is done and we continue to remove the tokens client-side.
@@ -189,29 +178,26 @@ class Token_Manager implements Token_Manager_Interface {
 	 * @throws Unauthorized_Exception Unauthorized_Exception.
 	 */
 	public function token_request( WP_User $user ): void {
-		// Ensure the user has given consent.
-		if ( $this->user_helper->get_meta( $user->ID, '_yoast_wpseo_ai_consent', true ) !== '1' ) {
-			// phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- false positive.
-			$this->consent_handler->revoke_consent( $user->ID );
-			throw new Forbidden_Exception( 'CONSENT_REVOKED', 403 );
-
-			// phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
-		}
-
 		// Generate a code verifier and store it in the database.
 		$code_verifier = $this->code_verifier->generate( $user->user_email );
 		$this->code_verifier_repository->store_code_verifier( $user->ID, $code_verifier->get_code(), $code_verifier->get_created_at() );
+
+		$callback_url         = $this->urls->get_callback_url();
+		$refresh_callback_url = $this->urls->get_refresh_callback_url();
 
 		$request_body = [
 			'service'              => 'openai',
 			'code_challenge'       => \hash( 'sha256', $code_verifier->get_code() ),
 			'license_site_url'     => WPSEO_Utils::get_home_url(),
 			'user_id'              => (string) $user->ID,
-			'callback_url'         => $this->urls->get_callback_url(),
-			'refresh_callback_url' => $this->urls->get_refresh_callback_url(),
+			'callback_url'         => $callback_url,
+			'refresh_callback_url' => $refresh_callback_url,
 		];
 
 		$this->request_handler->handle( new Request( '/token/request', $request_body ) );
+
+		// Store a per-user hash of the callback URL to detect future site URL changes.
+		$this->user_helper->update_meta( $user->ID, '_yoast_wpseo_ai_generator_callback_url_hash', \md5( $callback_url ) );
 
 		// The callback saves the metadata. Because that is in another session, we need to delete the current cache here. Or we may get the old token.
 		\wp_cache_delete( $user->ID, 'user_meta' );
@@ -242,7 +228,7 @@ class Token_Manager implements Token_Manager_Interface {
 		$refresh_jwt = $this->refresh_token_repository->get_token( $user->ID );
 
 		// Generate a code verifier and store it in the database.
-		$code_verifier = $this->code_verifier->generate( $user->ID, $user->user_email );
+		$code_verifier = $this->code_verifier->generate( $user->user_email );
 		$this->code_verifier_repository->store_code_verifier( $user->ID, $code_verifier->get_code(), $code_verifier->get_created_at() );
 
 		$request_body    = [
@@ -279,6 +265,11 @@ class Token_Manager implements Token_Manager_Interface {
 			return true;
 		}
 
+		// Ensure exp is a valid numeric value.
+		if ( ! \is_numeric( $json->exp ) ) {
+			return true;
+		}
+
 		return $json->exp < \time();
 	}
 
@@ -301,6 +292,12 @@ class Token_Manager implements Token_Manager_Interface {
 	 * @throws RuntimeException Unable to retrieve the access or refresh token.
 	 */
 	public function get_or_request_access_token( WP_User $user ): string {
+		// If the site URL has changed since callback URLs were registered, delete stale tokens.
+		if ( $this->have_callback_urls_changed( $user ) ) {
+			$this->user_helper->delete_meta( $user->ID, '_yoast_wpseo_ai_generator_access_jwt' );
+			$this->user_helper->delete_meta( $user->ID, '_yoast_wpseo_ai_generator_refresh_jwt' );
+		}
+
 		$access_jwt = $this->user_helper->get_meta( $user->ID, '_yoast_wpseo_ai_generator_access_jwt', true );
 		if ( ! \is_string( $access_jwt ) || $access_jwt === '' ) {
 			$this->token_request( $user );
@@ -311,12 +308,6 @@ class Token_Manager implements Token_Manager_Interface {
 				$this->token_refresh( $user );
 			} catch ( Unauthorized_Exception $exception ) {
 				$this->token_request( $user );
-			} catch ( Forbidden_Exception $exception ) {
-				// Follow the API in the consent being revoked (Use case: user sent an e-mail to revoke?).
-				// phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- false positive.
-				$this->consent_handler->revoke_consent( $user->ID );
-				throw new Forbidden_Exception( 'CONSENT_REVOKED', 403 );
-				// phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
 			}
 			$access_jwt = $this->access_token_repository->get_token( $user->ID );
 		}
@@ -325,4 +316,30 @@ class Token_Manager implements Token_Manager_Interface {
 	}
 
 	// phpcs:enable Squiz.Commenting.FunctionCommentThrowTag.WrongNumber
+
+	/**
+	 * Checks whether the callback URLs have changed since the last token request.
+	 *
+	 * Detects site URL changes (e.g., migrating from a staging URL to a production domain)
+	 * that would leave stale callback URLs registered with the Yoast AI service.
+	 * Uses a per-user hash so each user independently detects the change and re-registers.
+	 * The hash is immune to wp search-replace operations.
+	 *
+	 * When no hash is stored (first run after upgrade), returns true to force a fresh
+	 * token_request(). This ensures existing sites with stale callback URLs self-heal
+	 * without manual intervention.
+	 *
+	 * @param WP_User $user The current user.
+	 *
+	 * @return bool Whether the callback URLs may have changed.
+	 */
+	private function have_callback_urls_changed( WP_User $user ): bool {
+		$registered_hash = $this->user_helper->get_meta( $user->ID, '_yoast_wpseo_ai_generator_callback_url_hash', true );
+
+		if ( ! \is_string( $registered_hash ) || $registered_hash === '' ) {
+			return true;
+		}
+
+		return $registered_hash !== \md5( $this->urls->get_callback_url() );
+	}
 }

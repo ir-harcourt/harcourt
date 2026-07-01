@@ -1,0 +1,235 @@
+# Translation of Plugins - WP Rollback &#8211; Rollback Plugins and Themes - Stable (latest release) in French (France)
+# This file is distributed under the same license as the Plugins - WP Rollback &#8211; Rollback Plugins and Themes - Stable (latest release) package.
+msgid ""
+msgstr ""
+"PO-Revision-Date: 2026-02-07 13:18:01+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n > 1;\n"
+"X-Generator: GlotPress/4.0.3\n"
+"Language: fr\n"
+"Project-Id-Version: Plugins - WP Rollback &#8211; Rollback Plugins and Themes - Stable (latest release)\n"
+
+#: src/PluginSetup/PluginMeta.php:73
+msgid "Go Pro!"
+msgstr "Passer en version Pro !"
+
+#: build/tools.js:24 src/Rollbacks/resources/modals/registerTemplates.js:19
+#: src/Rollbacks/resources/modals/Templates/FreeCompleteTemplate.jsx:58
+msgid "Rollback Complete"
+msgstr "Retour en arrière complet"
+
+#: build/tools.js:24
+#: src/Rollbacks/resources/modals/Templates/FreeCompleteTemplate.jsx:96
+msgid "Upgrade Now"
+msgstr "Mettre à niveau maintenant"
+
+#. translators: 1: Asset name 2: Asset version
+#: build/tools.js:24
+#: src/Rollbacks/resources/modals/Templates/FreeCompleteTemplate.jsx:41
+msgid "%1$s has been successfully rolled back to version %2$s."
+msgstr "%1$s a bien été retourné en arrière à la version %2$s."
+
+#: build/tools.js:23 src/Rollbacks/resources/pages/ThemeList.jsx:21
+msgid "Select a theme below to rollback to a previous version."
+msgstr "Sélectionnez un thème ci-dessous pour un retour en arrière à une version précédente."
+
+#: build/tools.js:23 src/Rollbacks/resources/pages/ThemeList.jsx:20
+msgid "Themes"
+msgstr "Thèmes"
+
+#: build/tools.js:23 src/Rollbacks/resources/pages/Rollbacks.jsx:78
+msgid "These versions would be available for rollback with WP Rollback Pro:"
+msgstr "Ces versions seraient disponibles pour un retour en arrière avec WP Rollback Pro :"
+
+#: build/tools.js:23 src/Rollbacks/resources/pages/Rollbacks.jsx:76
+msgid "Available Versions (Pro Feature)"
+msgstr "Versions disponibles (fonctionnalité Pro)"
+
+#: build/tools.js:23 src/Rollbacks/resources/pages/Rollbacks.jsx:66
+msgid "is not available on WordPress.org and requires WP Rollback Pro for version control."
+msgstr "n’est pas disponible sur WordPress.org et nécessite WP Rollback Pro pour le contrôle de version."
+
+#: build/tools.js:23 src/Rollbacks/resources/pages/Rollbacks.jsx:54
+msgid "This premium asset requires WP Rollback Pro for safe version rollbacks."
+msgstr "Cette ressource premium nécessite WP Rollback Pro pour les versions sécurisées en cas de retour en arrière."
+
+#: build/tools.js:23 src/Rollbacks/resources/pages/Rollbacks.jsx:52
+msgid "Unlock Premium Rollbacks"
+msgstr "Débloquer les retours en arrière Pro"
+
+#: build/tools.js:23 src/Rollbacks/resources/pages/Rollbacks.jsx:39
+msgid "Error"
+msgstr "Erreur"
+
+#: build/tools.js:23
+#: src/Rollbacks/resources/components/PremiumRollbackInlineUpsell.jsx:123
+msgid "Learn More About Pro Features"
+msgstr "En savoir plus sur les fonctionnalités Pro"
+
+#: build/tools.js:23
+#: src/Rollbacks/resources/components/PremiumRollbackInlineUpsell.jsx:116
+msgid "Go Back"
+msgstr "Retour"
+
+#: build/tools.js:23
+#: src/Rollbacks/resources/components/PremiumRollbackInlineUpsell.jsx:113
+msgid "Upgrade to WP Rollback Pro"
+msgstr "Mettre à niveau vers WP Rollback Pro"
+
+#: build/tools.js:23
+#: src/Rollbacks/resources/components/PremiumRollbackInlineUpsell.jsx:94
+msgid "Try WP Rollback Pro risk-free. If you're not completely satisfied, get your money back within 30 days."
+msgstr "Essayez WP Rollback Pro sans risque. Si vous n’êtes pas complètement satisfait, récupérez votre argent dans les 30 jours."
+
+#: build/tools.js:23
+#: src/Rollbacks/resources/components/PremiumRollbackInlineUpsell.jsx:92
+msgid "30-Day Money-Back Guarantee"
+msgstr "Garantie de remboursement de 30 jours"
+
+#: build/tools.js:23
+#: src/Rollbacks/resources/components/PremiumRollbackInlineUpsell.jsx:62
+msgid "Why Upgrade to WP Rollback Pro?"
+msgstr "Pourquoi mettre à niveau vers WP Rollback Pro ?"
+
+#: build/tools.js:23
+#: src/Rollbacks/resources/components/PremiumRollbackInlineUpsell.jsx:52
+msgid "Complete audit trail of all rollbacks with timestamps, user tracking, and detailed logs."
+msgstr "Complète la trace d’audit de tous les rétroversions avec horodatages, suivi des utilisateurs/utilisatrices et journaux détaillés."
+
+#: build/tools.js:23
+#: src/Rollbacks/resources/components/PremiumRollbackInlineUpsell.jsx:51
+msgid "Advanced Activity Logging"
+msgstr "Journalisation avancée des activités"
+
+#: build/tools.js:23
+#: src/Rollbacks/resources/components/PremiumRollbackInlineUpsell.jsx:44
+msgid "Add detailed notes to each rollback for better team coordination and change tracking."
+msgstr "Ajoutez des notes détaillées à chaque rétroversion pour une meilleure coordination d’équipe et un suivi des modifications."
+
+#: build/tools.js:23
+#: src/Rollbacks/resources/components/PremiumRollbackInlineUpsell.jsx:43
+msgid "Rollback Notes & Documentation"
+msgstr "Notes de retour en arrière et documentation"
+
+#: build/tools.js:23
+#: src/Rollbacks/resources/components/PremiumRollbackInlineUpsell.jsx:36
+msgid "For premium assets, creates a zip archive of the current version and stores the archive."
+msgstr "Pour les ressources PRO, crée une archive zip de la version actuelle et stocker l’archive."
+
+#: build/tools.js:23
+#: src/Rollbacks/resources/components/PremiumRollbackInlineUpsell.jsx:35
+msgid "Version Preservation"
+msgstr "Préservation des versions"
+
+#: build/tools.js:23
+#: src/Rollbacks/resources/components/PremiumRollbackInlineUpsell.jsx:28
+msgid "Roll back any premium plugin or theme from any marketplace - not just WordPress.org."
+msgstr "Annulez n’importe quelle extension ou thème PEO de n’importe quellle place de marché, pas seulement de WordPress.org."
+
+#: build/tools.js:22 src/Rollbacks/resources/pages/PluginList.jsx:22
+msgid "Select a plugin below to rollback to a previous version."
+msgstr "Sélectionnez une extension ci-dessous pour revenir à une version antérieure."
+
+#: build/tools.js:22 src/Rollbacks/resources/pages/PluginList.jsx:21
+msgid "Plugins"
+msgstr "Extensions"
+
+#: build/tools.js:1 src/Rollbacks/resources/pages/Dashboard.jsx:81
+msgid "Get complete control over every plugin on your site with automated backups, rollback notes for your team, and support for premium plugins from any marketplace."
+msgstr "Prenez un contrôle total sur chaque extension de votre site grâce à des sauvegardes automatisées, des notes de retour à l’arrière pour votre équipe et un support pour les extensions PRO de n’importe quellle place de marché."
+
+#: build/tools.js:1 src/Rollbacks/resources/pages/Dashboard.jsx:79
+msgid "The Safest Way to Rollback Premium Plugins & Themes"
+msgstr "La manière la plus sûre de faire une rétroversion d’extensions et de thèmes PRO"
+
+#: build/tools.js:1 src/Rollbacks/resources/pages/Dashboard.jsx:71
+msgid "Rollback a Theme"
+msgstr "Faire une rétroversion d’un thème"
+
+#: build/tools.js:1 src/Rollbacks/resources/pages/Dashboard.jsx:56
+msgid "Theme Version Rollback"
+msgstr "Rétroversion de thème"
+
+#: build/tools.js:1 src/Rollbacks/resources/pages/Dashboard.jsx:48
+msgid "Rollback a Plugin"
+msgstr "Restaurer une extension."
+
+#: build/tools.js:1 src/Rollbacks/resources/pages/Dashboard.jsx:36
+#: src/Rollbacks/resources/pages/Dashboard.jsx:59
+msgid "Revert any WordPress.org plugin to a previous version with just a few clicks. Choose the plugin and version you'd like to restore."
+msgstr "Restaurez n’importe quelle version d’une extension WordPress.org vers sa version précédente en quelques clics. Choisissez l’extension et la version que vous souhaitez restaurer."
+
+#: build/tools.js:1 src/Rollbacks/resources/pages/Dashboard.jsx:33
+msgid "Plugin Version Rollback"
+msgstr "Rétroversion de l’extension"
+
+#: build/tools.js:1 src/Rollbacks/resources/pages/Dashboard.jsx:21
+msgid "With WP Rollback you can go back to a previous WordPress.org plugin or theme version with ease. Which action would you like to perform today?"
+msgstr "Avec WP Rollback, vous pouvez facilement revenir à une version antérieure d’une extension ou d’un thème depuis WordPress.org. Quelle action aimeriez-vous accomplir aujourd’hui ?"
+
+#: build/tools.js:1 src/Rollbacks/resources/pages/Dashboard.jsx:19
+msgid "Rollback a Plugin or Theme"
+msgstr "Rétroversion d’extension ou de thème"
+
+#: build/tools.js:1 src/Rollbacks/resources/layout/Header.jsx:30
+#: src/Rollbacks/resources/pages/Dashboard.jsx:91
+msgid "Upgrade to Pro"
+msgstr "Mettre à niveau vers PRO"
+
+#: src/Rollbacks/RollbackSteps/UpsellValidatePackage.php:87
+msgid "Validating package integrity…"
+msgstr "Validation de l’intégrité du pack…"
+
+#: src/Rollbacks/RollbackSteps/UpsellValidatePackage.php:59
+msgid "Basic validation complete. 🔒 WP Rollback Pro includes advanced package integrity scanning. Upgrade at wprollback.com/pricing"
+msgstr "Validation de base terminée. 🔒 WP Rollback PRO inclut une analyse avancée de l’intégrité des packs. Mettre à niveau sur wprollback.com/pricing"
+
+#: src/Rollbacks/RollbackSteps/UpsellValidatePackage.php:53
+msgid "Package not found for rollback."
+msgstr "Pack non trouvé pour la rétroversion."
+
+#: src/Rollbacks/PluginRollback.php:63
+msgid "The requested version is not available."
+msgstr "La version demandée n’est pas disponible."
+
+#: src/Rollbacks/PluginRollback.php:55
+msgid "Cannot rollback to the same version."
+msgstr "Impossible de revenir à la même version."
+
+#: src/Rollbacks/PluginRollback.php:47
+msgid "Invalid version number provided."
+msgstr "Numéro de version fourni non valide."
+
+#: src/Rollbacks/PluginRollback.php:40
+msgid "You do not have permission to perform rollbacks."
+msgstr "Vous n’avez pas la permission de réaliser des rétroversions."
+
+#: src/PluginSetup/PluginMeta.php:59 build/tools.js:1
+#: src/Rollbacks/resources/layout/Header.jsx:21
+msgid "Support"
+msgstr "Support"
+
+#: src/PluginSetup/PluginMeta.php:45 build/tools.js:1
+#: src/Rollbacks/resources/layout/Header.jsx:18
+msgid "Documentation"
+msgstr "Documentation"
+
+#. Plugin URI of the plugin
+#. Author URI of the plugin
+#: wp-rollback.php
+msgid "https://wprollback.com/"
+msgstr "https://wprollback.com/"
+
+#. Description of the plugin
+#: wp-rollback.php
+msgid "Rollback (or forward) any WordPress.org plugin, theme or block like a boss."
+msgstr "Retour vers les versions précédentes de toute extension ou thème WordPress.org comme un chef."
+
+#. Plugin Name of the plugin
+#. Author of the plugin
+#: wp-rollback.php src/Rollbacks/Actions/RegisterAdminMenu.php:26
+#: src/Rollbacks/Actions/RegisterAdminMenu.php:34
+msgid "WP Rollback"
+msgstr "WP Rollback "

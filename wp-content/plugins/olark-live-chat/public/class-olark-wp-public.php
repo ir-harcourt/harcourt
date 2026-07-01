@@ -41,6 +41,15 @@ class Olark_Wp_Public {
 	private $version;
 
 	/**
+	 * The plugin options.
+	 *
+	 * @since    1.0.0
+	 * @access   private
+	 * @var      array    $olark_options    The plugin options.
+	 */
+	private $olark_options;
+
+	/**
 	 * Initialize the class and set its properties.
 	 *
 	 * @since    1.0.0
@@ -51,7 +60,8 @@ class Olark_Wp_Public {
 
 		$this->plugin_name = $plugin_name;
 		$this->version = $version;
-		$this->olark_options = get_option($this->plugin_name);
+		$options = get_option($this->plugin_name);
+		$this->olark_options = is_array($options) ? $options : array();
 	}
 
 	private function _format_price( $price ) {
@@ -114,13 +124,13 @@ class Olark_Wp_Public {
 			wp_enqueue_script( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'js/olark-wp-public.js', array( 'jquery' ), $this->version, false );
 
 			$dataToBePassed = array(
-				'site_ID'           => $this->olark_options['olark_site_ID'],
-				'expand' 			=> $this->olark_options['start_expanded'],
-				'float' 			=> $this->olark_options['detached_chat'],
-				'override_lang' => $this->olark_options['override_lang'],
-				'lang'				=> $this->olark_options['olark_lang'],
-				'api'				=> $this->olark_options['olark_api'],
-				'mobile'			=> $this->olark_options['olark_mobile'],
+				'site_ID'           => isset($this->olark_options['olark_site_ID']) ? (string) $this->olark_options['olark_site_ID'] : '',
+				'expand' 			=> isset($this->olark_options['start_expanded']) ? (int) $this->olark_options['start_expanded'] : 0,
+				'float' 			=> isset($this->olark_options['detached_chat']) ? (int) $this->olark_options['detached_chat'] : 0,
+				'override_lang' => isset($this->olark_options['override_lang']) ? (int) $this->olark_options['override_lang'] : 0,
+				'lang'				=> isset($this->olark_options['olark_lang']) ? (string) $this->olark_options['olark_lang'] : 'en-US',
+				'api'				=> isset($this->olark_options['olark_api']) ? (string) $this->olark_options['olark_api'] : '',
+				'mobile'			=> isset($this->olark_options['olark_mobile']) ? (int) $this->olark_options['olark_mobile'] : 0,
 				'woocommerce'			=> $uses_woocommerce,
 				'woocommerce_version'		=> $woocommerce_version,
 				'enable_cartsaver'	=>	"0"

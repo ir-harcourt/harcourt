@@ -1,0 +1,350 @@
+@use "../index" as *;
+
+.wpr-rollback-component-wrap {
+    max-width: 800px;
+    margin: 0 auto 100px;
+    border: 1px solid $border-color;
+}
+
+// Top Header Bar & Images
+.wpr-content-banner {
+    border-bottom: 1px solid $border-color;
+    height: 259px;
+    background: #fff;
+
+    &__theme {
+        height: 180px;
+        border: 1px solid $border-color;
+    }
+}
+
+.wpr-content-header {
+    background-color: #fff;
+    padding: 30px;
+    display: flex;
+    gap: 25px;
+    border-bottom: 1px solid $border-color;
+}
+
+.wpr-intro-text {
+    font-size: 16px;
+}
+
+.wpr-content-wrap {
+    background: #fff;
+    border: 1px solid $border-color;
+    padding: 0;
+}
+
+.wpr-heading-link {
+    text-decoration: none;
+    color: $color-headings;
+    outline: none;
+
+    &:hover {
+        color: var(--wp-admin-theme-color);
+    }
+
+    &:focus {
+        outline: none;
+        box-shadow: none;
+    }
+
+    span[aria-hidden] {
+        margin-left: 4px;
+    }
+}
+
+.wpr-expand-text {
+    color: var(--wp-admin-theme-color);
+    display: block;
+    margin-left: -6px;
+    cursor: pointer;
+
+    &:hover {
+        text-decoration: underline;
+        color: var(--wp-admin-theme-color);
+    }
+}
+
+// API errors
+.wpr-api-error {
+    padding: 15px 20px;
+    margin: 200px auto;
+    width: 600px;
+    background: #fff;
+    border: 1px solid $border-color;
+
+    h1 {
+        font-size: 17px;
+    }
+}
+
+// Plugin Info
+.wpr-plugin-info {
+    flex-grow: 1;
+
+    .wpr-plugin-name {
+        margin: 0 0 13px;
+        padding: 0;
+        line-height: 1.3;
+    }
+}
+
+.wpr-plugin-avatar-wrap {
+    width: 96px;
+    height: 96px;
+}
+
+.wpr-plugin-avatar {
+    border: 1px solid $border-color;
+    width: 96px;
+    height: 96px;
+}
+
+// Pills displaying meta data
+
+.wpr-pill-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.wpr-pill {
+    background: $color-light-blue;
+    border-radius: 500px;
+    padding: 6px 12px;
+
+    &__black {
+        background: #1d2327;
+        color: #fff;
+    }
+
+    .wpr-pill-text {
+        font-size: 14px;
+        margin: 0;
+        padding: 0;
+
+        a {
+            color: var(--wp-admin-theme-color);
+        }
+    }
+}
+
+// Right side of header / Meta Data
+.wpr-meta-wrap {
+    min-width: 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+
+    h3 {
+        @include all-caps-heading;
+        font-weight: 500;
+    }
+
+    .wpr-plugin-lastupdate {
+        font-size: 14px;
+        font-style: italic;
+    }
+
+    .wpr-view-changelog {
+        margin-bottom: 25px;
+    }
+}
+
+.wpr-theme-author-inner {
+    border: 1px solid $border-color;
+    text-align: center;
+
+    img {
+        margin: 15px auto;
+    }
+
+    .wpr-theme-author-info {
+        border-top: 1px solid $border-color;
+        padding: 4px 6px;
+        background: $background-light-gray;
+        line-height: 15px;
+
+        a {
+            font-size: 11px;
+            line-height: 1.2;
+            text-decoration: none;
+        }
+
+        a:focus,
+        a:hover {
+            box-shadow: none;
+            outline: none;
+            text-decoration: underline;
+        }
+    }
+}
+
+// Version Info
+.wpr-versions-container {
+    background-color: #fff;
+    overflow-y: auto;
+    min-height: 450px;
+    max-height: 450px;
+}
+
+.wpr-version-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0;
+    margin: 0;
+    border-bottom: 1px solid $border-color;
+    background: $background-light-gray;
+
+    &:hover {
+        background: #fff;
+    }
+
+    &.wpr-active-row {
+        background: #f1f8ff;
+    }
+
+    .wpr-popover-wrap {
+        display: inline-block;
+        margin-left: 10px;
+    }
+}
+
+.wpr-plugin-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 170px;
+
+    .wpr-view-changelog,
+    .wpr-support-link {
+        .components-button,
+        a.components-button {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+}
+
+// Radios listing versions
+.wpr-version-radio-wrap {
+    margin: 0;
+    padding: 0;
+
+    label {
+        display: flex;
+        padding: 20px 30px;
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: 0;
+    }
+
+    input[type="radio"] {
+        margin: 0;
+    }
+
+    span.wpr-version-lineitem {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0 0 0 8px;
+    }
+
+}
+
+// Right-side badge container — pushes all badges to the trailing edge of the row
+.wpr-version-badges {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+// Version source badges (vault / local / repo)
+.wpr-version-source {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 3px;
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    cursor: default;
+
+    .dashicons {
+        font-size: 13px;
+        width: 13px;
+        height: 13px;
+        line-height: 13px;
+    }
+
+    &--vault {
+        color: var(--wp-admin-theme-color);
+        background: rgba(56, 88, 233, 0.08);
+
+        .dashicons {
+            color: var(--wp-admin-theme-color);
+        }
+    }
+
+    &--local {
+        color: #1e7e34;
+        background: rgba(30, 126, 52, 0.07);
+
+        .dashicons {
+            color: #1e7e34;
+        }
+    }
+
+    &--repo {
+        color: #0073aa;
+        background: rgba(0, 115, 170, 0.08);
+
+        .dashicons {
+            color: #0073aa;
+        }
+    }
+
+    &--installed {
+        color: #374151;
+        background: rgba(55, 65, 81, 0.07);
+
+        .dashicons {
+            color: #374151;
+        }
+    }
+}
+
+// Placed after .wpr-version-source to respect specificity ordering (no-descending-specificity)
+.wpr-meta-wrap .wpr-updater-info .dashicons {
+    font-size: 16px;
+}
+
+// Release date displayed alongside the Repo badge
+.wpr-version-date {
+    font-size: 13px;
+    color: var(--wpr-gray-600);
+    white-space: nowrap;
+}
+
+// Bottom button
+.wpr-button-wrap {
+    padding: 20px 30px;
+    background: #fff;
+    bottom: 0;
+    width: 802px;
+    box-sizing: border-box;
+    border: 1px solid $border-color;
+    box-shadow: 0 -10px 20px rgb(0 0 0 / 9%);
+
+    .is-secondary {
+        margin-left: 20px;
+    }
+}

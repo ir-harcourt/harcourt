@@ -601,7 +601,7 @@ function gtm4wp_woocommerce_datalayer_filter_items( $data_layer ) {
 
 		// Supressing 'Processing form data without nonce verification.' message as there is no nonce accesible in this case.
 		$order_id = filter_var( wp_unslash( isset( $_GET['order'] ) ? $_GET['order'] : '' ), FILTER_VALIDATE_INT ); // phpcs:ignore
-		if ( ! $order_id & isset( $wp->query_vars['order-received'] ) ) {
+		if ( ! $order_id && isset( $wp->query_vars['order-received'] ) ) {
 			$order_id = $wp->query_vars['order-received'];
 		}
 		$order_id = absint( $order_id );
@@ -619,6 +619,7 @@ function gtm4wp_woocommerce_datalayer_filter_items( $data_layer ) {
 			$order = wc_get_order( $order_id );
 
 			if ( $order instanceof WC_Order ) {
+
 				$this_order_key = $order->get_order_key();
 
 				if ( $this_order_key !== $order_key ) {
@@ -717,7 +718,7 @@ function gtm4wp_woocommerce_datalayer_filter_items( $data_layer ) {
 
 			$after_purchase_dl_push = '
 			}
-
+			
 			// Store order ID to prevent tracking this purchase again.
 			if ( !window.localStorage ) {
 				var gtm4wp_orderid_cookie_expire = new Date();
@@ -734,6 +735,7 @@ function gtm4wp_woocommerce_datalayer_filter_items( $data_layer ) {
 				$before_purchase_dl_push,
 				$after_purchase_dl_push
 			);
+
 
 			if ( ! $do_not_flag_tracked_order ) {
 				$order->update_meta_data( '_ga_tracked', 1 );
@@ -853,7 +855,11 @@ function gtm4wp_woocommerce_datalayer_filter_items( $data_layer ) {
  * @return void
  */
 function gtm4wp_woocommerce_thankyou( $order_id ) {
-	global $gtm4wp_options, $gtm4wp_woocommerce_purchase_data_pushed;
+	global $gtm4wp_options, $gtm4wp_woocommerce_purchase_data_pushed, $gtm4wp_datalayer_name;
+
+	if ( function_exists('is_order_received_page') && is_order_received_page() ) {
+		return;
+	}
 
 	/*
 	If this flag is set to true, it means that the puchase event was fired
@@ -925,6 +931,19 @@ function gtm4wp_woocommerce_thankyou( $order_id ) {
 		$data_layer = array_merge(
 			$data_layer,
 			$purchase_data_layer
+		);
+
+		$script_tag = '
+' . gtm4wp_generate_script_opening_tag() . '
+	window.' . esc_js( $gtm4wp_datalayer_name ) . ' = window.' . esc_js( $gtm4wp_datalayer_name ) . ' || [];
+	window.' . esc_js( $gtm4wp_datalayer_name ) . '.push(' . wp_json_encode( $data_layer ) . ');
+</script>';
+
+		echo htmlspecialchars_decode( //phpcs:ignore
+			wp_kses(
+				$script_tag,
+				gtm4wp_get_sanitize_script_block_rules()
+			)
 		);
 
 		if ( ! $do_not_flag_tracked_order ) {

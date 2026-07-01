@@ -1,0 +1,923 @@
+<?php
+
+/**
+ * Backup service for creating and managing asset backups.
+ *
+ * @package WpRollback\SharedCore\Rollbacks\Services
+ */
+
+declare(strict_types=1);
+
+namespace WpRollback\SharedCore\Rollbacks\Services;
+
+use WP_Filesystem_Base;
+use ZipArchive;
+use RecursiveIteratorIterator;
+use RecursiveDirectoryIterator;
+use WP_REST_Request;
+use WpRollback\SharedCore\Rollbacks\Traits\PluginHelpers;
+use WpRollback\SharedCore\Core\SharedCore;
+
+
+/**
+ * Service for creating and managing asset backups
+ *
+ */
+class BackupService
+{
+    use PluginHelpers;
+
+    /**
+     * @var string Directory path for rollback files
+     */
+    private string $rollbackDir;
+
+    /**
+     * @var WP_Filesystem_Base|null WordPress filesystem
+     */
+    private ?WP_Filesystem_Base $filesystem = null;
+
+    /**
+     * Constructor.
+     *
+     */
+    public function __construct()
+    {
+        $uploadDir = wp_upload_dir();
+        $this->rollbackDir = trailingslashit($uploadDir['basedir']) . 'wp-rollback';
+    }
+
+    /**
+     * Set up the rollback directory.
+     *
+     * @throws \RuntimeException If directory creation fails
+     */
+    public function setupRollbackDirectory(): void
+    {
+        // Skip directory setup in E2E test environment if uploads isn't writable
+        if (defined('TEST_PLUGIN_TYPE') && !wp_is_writable(dirname($this->rollbackDir))) {
+            return;
+        }
+        
+        $this->initializeFilesystem();
+
+        // Create directory if it doesn't exist
+        if (!$this->filesystem->is_dir($this->rollbackDir)) {
+            if (!$this->filesystem->mkdir($this->rollbackDir)) {
+                // In test environments, log but don't throw
+                if (defined('WP_ENVIRONMENT_TYPE') && constant('WP_ENVIRONMENT_TYPE') === 'local') {
+                    error_log('WP Rollback: Could not create rollback directory. Some features may be limited.');
+                    return;
+                }
+                throw new \RuntimeException('Failed to create rollback directory.');
+            }
+
+            // Create an index.php file for security
+            $this->filesystem->put_contents(
+                $this->rollbackDir . '/index.php',
+                '<?php // Silence is golden'
+            );
+
+            // Create .htaccess to prevent direct access
+            $this->filesystem->put_contents(
+                $this->rollbackDir . '/.htaccess',
+                'Deny from all'
+            );
+        }
+    }
+
+    /**
+     * Check if a backup already exists for a specific version.
+     *
+     * @param string $assetSlug The asset slug
+     * @param string $assetType The asset type ('plugin' or 'theme')
+     * @return bool|string False if no backup exists, version string if backup exists
+     */
+    public function getExistingBackupVersion(string $assetSlug, string $assetType)
+    {
+        try {
+            // Get current version
+            $version = $this->getCurrentAssetVersion($assetSlug, $assetType);
+            if (empty($version)) {
+                return false;
+            }
+
+            // Check if backup file exists
+            $zipFilename = sprintf('%s-%s.zip', $assetSlug, $version);
+            $zipPath = wp_normalize_path($this->rollbackDir . '/' . $zipFilename);
+            
+            return file_exists($zipPath) ? $version : false;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Create a backup of a plugin or theme.
+     *
+     * @param string $assetSlug The asset slug
+     * @param string $assetType The asset type ('plugin' or 'theme')
+     * @return bool|string True if backup was created successfully, 'exists' if backup already exists, false otherwise
+     */
+    public function createAssetBackup(string $assetSlug, string $assetType)
+    {
+        try {
+            $this->initializeFilesystem();
+            $this->setupRollbackDirectory();
+
+            // Check if backup already exists for current version
+            if ($this->getExistingBackupVersion($assetSlug, $assetType)) {
+                return 'exists';
+            }
+
+            if ('plugin' === $assetType) {
+                return $this->createPluginBackup($assetSlug);
+            } elseif ('theme' === $assetType) {
+                return $this->createThemeBackup($assetSlug);
+            }
+
+            return false;
+        } catch (\Throwable $e) {
+            // Silently fail if backup creation fails - catches both Exceptions and Errors
+            // Log error if debug mode is enabled
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+                error_log(sprintf('[WP Rollback] Backup creation failed for %s (%s): %s', $assetSlug, $assetType, $e->getMessage()));
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Intercept plugin/theme upgrade to store a backup.
+     *
+     * @param array $options Upgrader package options
+     * @return array Modified options
+     */
+    public function interceptUpgrade(array $options): array
+    {
+        // Skip WordPress.org packages
+        if (isset($options['package']) && is_string($options['package']) && strpos($options['package'], 'downloads.wordpress.org') !== false) {
+            return $options;
+        }
+
+        // Handle plugin updates
+        if (isset($options['destination'], $options['hook_extra']['plugin'])) {
+            $plugin = $options['hook_extra']['plugin'];
+            $pluginSlug = dirname($plugin);
+            
+            try {
+                $this->createAssetBackup($pluginSlug, 'plugin');
+            } catch (\Throwable $e) {
+                // Silently continue if backup fails - catches both Exceptions and Errors
+                // This ensures plugin updates are never blocked by backup failures
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+                    error_log(sprintf('[WP Rollback] Backup creation failed during plugin update: %s', $e->getMessage()));
+                }
+            }
+        } // Handle theme updates
+        elseif (isset($options['destination'], $options['hook_extra']['theme'])) {
+            $themeSlug = $options['hook_extra']['theme'];
+            
+            try {
+                $this->createAssetBackup($themeSlug, 'theme');
+            } catch (\Throwable $e) {
+                // Silently continue if backup fails - catches both Exceptions and Errors
+                // This ensures theme updates are never blocked by backup failures
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+                    error_log(sprintf('[WP Rollback] Backup creation failed during theme update: %s', $e->getMessage()));
+                }
+            }
+        }
+
+        return $options;
+    }
+
+    /**
+     * Get available versions for a plugin/theme from backup files.
+     *
+     * @param array  $versions Current versions array
+     * @param string $slug     Plugin/theme slug
+     * @return array Modified versions array
+     */
+    public function getAvailableVersions(array $versions, string $slug): array
+    {
+        $pattern = sprintf('%s/%s-*.zip', $this->rollbackDir, $slug);
+        
+        foreach (glob($pattern) as $file) {
+            if (!preg_match('/-([0-9.]+)\.zip$/', $file, $matches)) {
+                continue;
+            }
+            
+            $version = $matches[1];
+            // Ensure version number is valid
+            if (!preg_match('/^\d+(\.\d+)*$/', $version)) {
+                continue;
+            }
+
+            if (!isset($versions[$version])) {
+                $versions[$version] = [
+                    'file' => basename($file),
+                    'downloadUrl' => '',
+                    'released' => null
+                ];
+            }
+        }
+
+        return $versions;
+    }
+
+    /**
+     * Check if a plugin/theme has backup versions available.
+     *
+     * @param bool   $isPro Current pro status
+     * @param string $slug  Plugin/theme slug
+     * @return bool Modified pro status
+     */
+    public function hasBackupVersions(bool $isPro, string $slug): bool
+    {
+        if ($isPro) {
+            return true;
+        }
+
+        $pattern = sprintf('%s/%s-*.zip', $this->rollbackDir, $slug);
+        return !empty(glob($pattern));
+    }
+
+    /**
+     * Control whether to delete the existing plugin/theme during rollback.
+     *
+     * @param bool   $shouldDelete Whether to delete the asset
+     * @param string $assetFile    The asset file path
+     * @param string $assetSlug    The asset slug
+     * @return bool Whether to delete the asset
+     */
+    public function shouldDeleteExistingAsset(bool $shouldDelete, string $assetFile, string $assetSlug): bool
+    {
+        // For assets with backups, we want to handle deletion ourselves
+        if (false === $this->hasBackupVersions(false, $assetSlug)) {
+            return $shouldDelete;
+        }
+
+        return false;
+    }
+
+    /**
+     * Modify rollback request data for assets with backup versions.
+     *
+     * @param array         $data    Current request data
+     * @param WP_REST_Request $request Raw request data
+     * @return array Modified request data
+     */
+    public function modifyRollbackRequestData(array $data, WP_REST_Request $request): array
+    {
+        if (!isset($data['assetSlug'], $data['assetVersion'])) {
+            return $data;
+        }
+
+        $slug = $data['assetSlug'];
+        $version = $data['assetVersion'];
+        $type = $data['assetType'] ?? 'plugin';
+        
+        $originalZipPath = sprintf('%s/%s-%s.zip', $this->rollbackDir, $slug, $version);
+        $tempZipPath = sprintf('%s/%s-%s-temp.zip', $this->rollbackDir, $slug, $version);
+        
+        // Check if backup for this version already exists
+        if (file_exists($originalZipPath)) {
+            // Create a copy of the zip file that will be used for rollback
+            copy($originalZipPath, $tempZipPath);
+            
+            // Set the package path in the transient to use the temp copy
+            set_transient("wpr_{$type}_{$slug}_package", $tempZipPath, HOUR_IN_SECONDS);
+            
+            // Register a shutdown function to clean up the temp file after everything is done
+            add_action('shutdown', function () use ($tempZipPath) {
+                if (file_exists($tempZipPath)) {
+                    @unlink($tempZipPath);
+                }
+            });
+            
+            // Set all required parameters
+            $data['package'] = $tempZipPath;
+            $data['isPro'] = true;
+            $data['type'] = $type;
+            $data['slug'] = $slug;
+            $data['version'] = $version;
+            
+            // For themes, ensure the proper clearing and destination
+            if ('theme' === $type) {
+                // WordPress's theme upgrader typically expects the theme to be contained 
+                // in a directory with its slug inside the zip. We've already ensured this 
+                // in the backup creation, so we don't need to specify a destination.
+                // WordPress will handle it correctly based on the zip structure.
+                
+                // Don't clear the destination - this can cause loss of directories
+                $data['clear_destination'] = false;
+                
+                // Set WordPress to overwrite files but not delete directories
+                $data['abort_if_destination_exists'] = false;
+            }
+        } else {
+            // This is now a silent failure
+        }
+
+        return $data;
+    }
+
+    /**
+     * Create a backup of a plugin.
+     *
+     * @param string $pluginSlug The plugin slug
+     * @return bool True if backup was created successfully
+     * @throws \RuntimeException If backup creation fails
+     */
+    private function createPluginBackup(string $pluginSlug): bool
+    {
+        $pluginFile = $this->getPluginFileBySlug($pluginSlug);
+        if (empty($pluginFile)) {
+            return false;
+        }
+
+        $pluginPath = WP_PLUGIN_DIR . '/' . $pluginFile;
+        if (!file_exists($pluginPath)) {
+            return false;
+        }
+
+        if (!function_exists('get_plugin_data')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        $data = get_plugin_data($pluginPath);
+        $version = !empty($data['Version']) ? $data['Version'] : 'unknown';
+        $pluginDir = dirname($pluginPath);
+
+        return $this->createBackupZip($pluginDir, $pluginSlug, $version, 'plugin');
+    }
+
+    /**
+     * Create a backup of a theme.
+     *
+     * @param string $themeSlug The theme slug
+     * @return bool True if backup was created successfully
+     * @throws \RuntimeException If backup creation fails
+     */
+    private function createThemeBackup(string $themeSlug): bool
+    {
+        $themePath = get_theme_root() . '/' . $themeSlug;
+        if (!is_dir($themePath)) {
+            return false;
+        }
+
+        $styleFile = trailingslashit($themePath) . 'style.css';
+        $version = 'unknown';
+
+        if (file_exists($styleFile)) {
+            if (!function_exists('get_file_data')) {
+                require_once ABSPATH . 'wp-admin/includes/plugin.php';
+            }
+
+            $themeData = get_file_data($styleFile, [
+                'Version' => 'Version',
+            ], 'theme');
+
+            $version = isset($themeData['Version']) ? $themeData['Version'] : 'unknown';
+        }
+
+        // If we still don't have a version, try using WP_Theme
+        if ('unknown' === $version) {
+            $theme = wp_get_theme($themeSlug);
+            if ($theme->exists()) {
+                $versionValue = $theme->get('Version');
+                $version = $versionValue ? $versionValue : 'unknown';
+            }
+        }
+
+        return $this->createBackupZip($themePath, $themeSlug, $version, 'theme');
+    }
+
+    /**
+     * Create a ZIP backup of an asset.
+     *
+     * @param string $assetPath The path to the asset directory
+     * @param string $slug The asset slug
+     * @param string $version The asset version
+     * @param string $type The asset type ('plugin' or 'theme')
+     * @return bool True if ZIP was created successfully
+     * @throws \RuntimeException If ZIP creation fails
+     */
+    private function createBackupZip(string $assetPath, string $slug, string $version, string $type): bool
+    {
+        $zipFilename = sprintf('%s-%s.zip', $slug, $version);
+        $zipPath = wp_normalize_path($this->rollbackDir . '/' . $zipFilename);
+
+        // Skip if backup already exists
+        if (file_exists($zipPath)) {
+            return true;
+        }
+
+        // Rotate backups to maintain maximum of 25 per asset
+        $this->rotateBackups($slug);
+
+        // Try ZipArchive first (faster), fallback to PclZip (WordPress Core library)
+        if (class_exists('ZipArchive')) {
+            return $this->createBackupZipWithZipArchive($assetPath, $slug, $type, $zipPath);
+        } else {
+            return $this->createBackupZipWithPclZip($assetPath, $slug, $type, $zipPath);
+        }
+    }
+
+    /**
+     * Create a ZIP backup using ZipArchive (preferred method).
+     *
+     * @param string $assetPath The path to the asset directory
+     * @param string $slug The asset slug
+     * @param string $type The asset type ('plugin' or 'theme')
+     * @param string $zipPath The path where the ZIP file will be created
+     * @return bool True if ZIP was created successfully
+     * @throws \RuntimeException If ZIP creation fails
+     */
+    private function createBackupZipWithZipArchive(string $assetPath, string $slug, string $type, string $zipPath): bool
+    {
+        // Create ZIP archive
+        $zip = new ZipArchive();
+        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            throw new \RuntimeException('Failed to create ZIP archive.');
+        }
+
+        $assetDir = trailingslashit($assetPath);
+
+        try {
+            // Collect all file paths before adding them to the archive.
+            //
+            // RecursiveDirectoryIterator returns entries in filesystem order,
+            // which differs between ext4, APFS, NTFS, and other filesystems.
+            // Because ZIP SHA-256 is sensitive to entry order, two servers
+            // creating a backup of the same plugin version would produce
+            // different checksums if files are added in a different sequence.
+            //
+            // Sorting alphabetically makes the entry order deterministic on
+            // every platform, so the Plugin Vault's SHA-256 quorum check
+            // produces the same result across all contributing sites.
+            $filePaths = [];
+            $iterator  = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($assetDir),
+                RecursiveIteratorIterator::LEAVES_ONLY
+            );
+
+            foreach ($iterator as $file) {
+                if ($file->isDir()) {
+                    continue;
+                }
+                // Use getPathname() rather than getRealPath() so the path is
+                // never symlink-resolved. getRealPath() would resolve /var to
+                // /private/var on macOS, making the path inconsistent with
+                // $assetDir and corrupting all relative path calculations.
+                $absolutePath = wp_normalize_path($file->getPathname());
+                // Skip OS-specific artefacts that are absent on some servers
+                // (e.g. .DS_Store on macOS, Thumbs.db on Windows) and VCS
+                // metadata that should never ship in a plugin package. These
+                // files cause SHA-256 differences between Mac-deployed and
+                // Linux-deployed servers even when the plugin code is identical.
+                if ($this->isOsArtefact($absolutePath)) {
+                    continue;
+                }
+                $filePaths[] = $absolutePath;
+            }
+
+            sort($filePaths); // Stable, platform-independent entry order
+
+            foreach ($filePaths as $filePath) {
+                if ('theme' === $type) {
+                    // For themes, WordPress expects files to be inside a directory with the theme's slug
+                    $relativePath = $slug . '/' . str_replace($assetDir, '', $filePath);
+                } else {
+                    // For plugins, we need to keep the plugin directory structure
+                    $relativePath = substr($filePath, strlen(dirname($assetDir)) + 1);
+                }
+
+                if ($zip->addFile($filePath, $relativePath) === false) {
+                    $zip->close();
+                    throw new \RuntimeException('Failed to add file to ZIP archive: ' . esc_html($relativePath));
+                }
+
+                // Normalise the stored mtime to epoch 0 (PHP 8.0+).
+                // Without this, the ZIP entry timestamp reflects the file's
+                // mtime on the host filesystem, which can vary if PHP or the OS
+                // reset it during extraction or deployment. Setting a fixed
+                // value ensures the ZIP bytes — and therefore the SHA-256 —
+                // are identical across all sites backing up the same version.
+                if (method_exists($zip, 'setMtimeName')) {
+                    $zip->setMtimeName($relativePath, 0);
+                }
+            }
+
+            $zip->close();
+            
+            // Extract version from zip path for the action hook
+            $version = basename($zipPath, '.zip');
+            $version = str_replace($slug . '-', '', $version);
+            
+            // Trigger action for archive creation (Pro plugin can hook into this)
+            do_action('wpr_archive_created', $slug, $version, $type, $zipPath);
+            
+            return true;
+        } catch (\Exception $e) {
+            if ($zip instanceof \ZipArchive) {
+                $zip->close();
+            }
+            throw new \RuntimeException('Error creating backup: ' . esc_html($e->getMessage()));
+        }
+    }
+
+    /**
+     * Create a ZIP backup using PclZip (WordPress Core fallback).
+     *
+     * @param string $assetPath The path to the asset directory
+     * @param string $slug The asset slug
+     * @param string $type The asset type ('plugin' or 'theme')
+     * @param string $zipPath The path where the ZIP file will be created
+     * @return bool True if ZIP was created successfully
+     * @throws \RuntimeException If ZIP creation fails
+     */
+    private function createBackupZipWithPclZip(string $assetPath, string $slug, string $type, string $zipPath): bool
+    {
+        // Load PclZip library from WordPress Core
+        if (!class_exists('PclZip')) {
+            require_once ABSPATH . 'wp-admin/includes/class-pclzip.php';
+        }
+
+        try {
+            // phpcs:ignore PHPCompatibility.Classes.NewClasses.pclzipFound
+            $archive = new \PclZip($zipPath);
+            
+            // Prepare add options based on asset type
+            $addPath = trailingslashit($assetPath);
+            $removePath = dirname($assetPath);
+            
+            if ('theme' === $type) {
+                // For themes, ensure files are in a directory with the theme's slug
+                $result = $archive->add( // @phpstan-ignore-line - PclZip is WordPress Core class
+                    $addPath,
+                    PCLZIP_OPT_REMOVE_PATH, // @phpstan-ignore-line - WordPress Core constant
+                    $removePath
+                );
+            } else {
+                // For plugins, keep the directory structure
+                $result = $archive->add( // @phpstan-ignore-line - PclZip is WordPress Core class
+                    $addPath,
+                    PCLZIP_OPT_REMOVE_PATH, // @phpstan-ignore-line - WordPress Core constant
+                    dirname($removePath)
+                );
+            }
+
+            if (0 === $result) {
+                throw new \RuntimeException('PclZip error: ' . esc_html($archive->errorInfo(true)));
+            }
+
+            // Extract version from zip path for the action hook
+            $version = basename($zipPath, '.zip');
+            $version = str_replace($slug . '-', '', $version);
+            
+            // Trigger action for archive creation (Pro plugin can hook into this)
+            do_action('wpr_archive_created', $slug, $version, $type, $zipPath);
+            
+            return true;
+        } catch (\Exception $e) {
+            throw new \RuntimeException('Error creating backup with PclZip: ' . esc_html($e->getMessage()));
+        }
+    }
+
+    /**
+     * Get the absolute path to the rollback backup directory.
+     *
+     */
+    public function getRollbackDirectory(): string
+    {
+        return $this->rollbackDir;
+    }
+
+    /**
+     * Initialize WordPress filesystem.
+     *
+     * @throws \RuntimeException If filesystem initialization fails
+     */
+    private function initializeFilesystem(): void
+    {
+        if (null !== $this->filesystem) {
+            return;
+        }
+
+        if (!function_exists('WP_Filesystem')) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+        }
+
+        // set $allow_relaxed_file_ownership to true to allow Group/World writable files.
+        WP_Filesystem(false, false, true);
+        
+        // phpcs:disable Squiz.NamingConventions.ValidVariableName.NotCamelCaps -- $wp_filesystem is a WordPress global
+        global $wp_filesystem;
+
+        // WordPress variable naming exception - this is a global WordPress var
+        // Accept any WP_Filesystem_Base implementation, not just Direct
+        if (!($wp_filesystem instanceof WP_Filesystem_Base)) {
+            throw new \RuntimeException('WordPress filesystem not initialized properly.');
+        }
+
+        $this->filesystem = $wp_filesystem;
+        // phpcs:enable Squiz.NamingConventions.ValidVariableName.NotCamelCaps
+    }
+
+    /**
+     * Get the archive limit based on Pro/Free version
+     *
+     * @return int The archive limit
+     */
+    public function getArchiveLimit(): int
+    {
+        if ($this->isProPluginActive()) {
+            try {
+                $proSettings = SharedCore::container()->make(\WpRollback\Pro\Settings\ProSettings::class);
+                return $proSettings->getArchiveLimit();
+            } catch (\Exception $e) {
+                // Fall back to default Pro limit
+                return 25;
+            }
+        }
+
+        // Free version limit
+        return 5;
+    }
+
+    /**
+     * Rotate backups to maintain maximum backups per asset.
+     *
+     * @param string $slug The asset slug
+     */
+    private function rotateBackups(string $slug): void
+    {
+        $maxBackups = $this->getArchiveLimit();
+        $pattern = sprintf('%s/%s-*.zip', $this->rollbackDir, $slug);
+        $backupFiles = glob($pattern);
+        
+        if (!$backupFiles || count($backupFiles) < $maxBackups) {
+            return;
+        }
+
+        // Sort files by modification time (oldest first)
+        usort($backupFiles, function ($a, $b) {
+            return filemtime($a) - filemtime($b);
+        });
+
+        // Remove oldest backups until we have room for one more
+        $filesToRemove = array_slice($backupFiles, 0, count($backupFiles) - ($maxBackups - 1));
+        
+        foreach ($filesToRemove as $file) {
+            if (file_exists($file)) {
+                @unlink($file);
+            }
+        }
+    }
+
+    /**
+     * Return true for OS-specific artefacts that should be excluded from
+     * vault-contribution ZIPs.
+     *
+     * These files are absent on some platforms (e.g. .DS_Store only appears
+     * on macOS; Thumbs.db / desktop.ini only on Windows). Including them
+     * would make the backup ZIP differ between servers even for identical
+     * plugin code, breaking the Plugin Vault's SHA-256 quorum check.
+     *
+     * VCS metadata (.git, .svn) is also excluded — it is occasionally
+     * shipped by accident but is never part of a distributed plugin package.
+     *
+     * NOTE: PclZip (the fallback when ZipArchive is unavailable) does not
+     * benefit from this filtering because it receives a directory path and
+     * traverses it internally. PclZip is only used on PHP 7.x hosts without
+     * the zip extension — an extremely rare configuration.
+     *
+     * @param string $absolutePath wp_normalize_path()-normalised absolute path.
+     */
+    private function isOsArtefact(string $absolutePath): bool
+    {
+        $basename = basename($absolutePath);
+
+        // macOS Finder metadata
+        if ('.DS_Store' === $basename) {
+            return true;
+        }
+
+        // Windows Explorer thumbnail / layout caches
+        if ('Thumbs.db' === $basename || 'desktop.ini' === $basename) {
+            return true;
+        }
+
+        // Files inside macOS ZIP resource-fork directory, VCS directories
+        foreach (['/__MACOSX/', '/.git/', '/.svn/'] as $segment) {
+            if (false !== strpos($absolutePath, $segment)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Get plugin file by slug.
+     *
+     * @param string $pluginSlug The plugin slug
+     * @return string The plugin file path relative to plugins directory
+     */
+    private function getPluginFileBySlug(string $pluginSlug): string
+    {
+        if (!function_exists('get_plugins')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        $plugins = get_plugins();
+        foreach (array_keys($plugins) as $file) {
+            if (0 === strpos($file, $pluginSlug . '/')) {
+                return $file;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Get the current version of an asset.
+     *
+     * @param string $assetSlug The asset slug
+     * @param string $assetType The asset type ('plugin' or 'theme')
+     * @return string The asset version or empty string if not found
+     */
+    private function getCurrentAssetVersion(string $assetSlug, string $assetType): string
+    {
+        if ('plugin' === $assetType) {
+            $pluginFile = $this->getPluginFileBySlug($assetSlug);
+            if (empty($pluginFile)) {
+                return '';
+            }
+
+            $pluginPath = WP_PLUGIN_DIR . '/' . $pluginFile;
+            if (!file_exists($pluginPath)) {
+                return '';
+            }
+
+            if (!function_exists('get_plugin_data')) {
+                require_once ABSPATH . 'wp-admin/includes/plugin.php';
+            }
+
+            $data = get_plugin_data($pluginPath);
+            return !empty($data['Version']) ? $data['Version'] : '';
+        } elseif ('theme' === $assetType) {
+            $theme = wp_get_theme($assetSlug);
+            if ($theme->exists()) {
+                $version = $theme->get('Version');
+                return $version ? $version : '';
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Cleanup excess archives when limit is reduced
+     *
+     * @param int $newLimit New archive limit
+     * @return array Array with 'deleted' files and 'count' of deletions
+     */
+    public function cleanupExcessArchives(int $newLimit): array
+    {
+        $deleted = [];
+        $pattern = sprintf('%s/*-*.zip', $this->rollbackDir);
+        $allBackups = glob($pattern);
+        
+        if (!$allBackups) {
+            return ['deleted' => [], 'count' => 0];
+        }
+
+        global $wpdb;
+        $metaTable = $wpdb->prefix . 'rollback_activity_meta';
+        $activityTable = $wpdb->prefix . 'rollback_activity_log';
+        
+        // Check if Pro tables exist (they won't exist in Free version)
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- Table name can't be prepared
+        $tablesExist = $wpdb->get_var("SHOW TABLES LIKE '{$activityTable}'") === $activityTable;
+
+        // Group backups by asset slug
+        $backupsBySlug = [];
+        foreach ($allBackups as $backup) {
+            $filename = basename($backup);
+            // Extract slug from filename (format: slug-version.zip)
+            if (preg_match('/^(.+)-[0-9.]+\.zip$/', $filename, $matches)) {
+                $slug = $matches[1];
+                $backupsBySlug[$slug][] = $backup;
+            }
+        }
+
+        // Process each asset's backups
+        foreach ($backupsBySlug as $slug => $backups) {
+            if (count($backups) <= $newLimit) {
+                continue;
+            }
+
+            // Sort by modification time (oldest first)
+            usort($backups, function ($a, $b) {
+                return filemtime($a) - filemtime($b);
+            });
+
+            // Remove excess backups
+            $excess = count($backups) - $newLimit;
+            $toDelete = array_slice($backups, 0, $excess);
+            
+            foreach ($toDelete as $file) {
+                if (file_exists($file) && @unlink($file)) {
+                    $deleted[] = basename($file);
+                    
+                    // Clean up database entries for this file (only if Pro tables exist)
+                    if ($tablesExist) {
+                        // First, find the activity log entry by file path
+                        $activityId = $wpdb->get_var($wpdb->prepare(
+                            "SELECT rollback_id FROM {$metaTable} 
+                             WHERE meta_key = 'archive_file_path' 
+                             AND meta_value = %s 
+                             LIMIT 1",
+                            $file
+                        ));
+                        
+                        if ($activityId) {
+                            // Delete meta entries
+                            $wpdb->delete($metaTable, ['rollback_id' => $activityId], ['%d']);
+                            
+                            // Delete activity log entry
+                            $wpdb->delete($activityTable, ['id' => $activityId], ['%d']);
+                        }
+                    }
+                }
+            }
+        }
+
+        return [
+            'deleted' => $deleted,
+            'count'   => count($deleted),
+        ];
+    }
+
+    /**
+     * Clear all archives
+     *
+     * @return array Array with 'deleted' files and 'count' of deletions
+     */
+    public function clearAllArchives(): array
+    {
+        $deleted = [];
+        $pattern = sprintf('%s/*-*.zip', $this->rollbackDir);
+        $allBackups = glob($pattern);
+        
+        if (!$allBackups) {
+            return ['deleted' => [], 'count' => 0];
+        }
+
+        global $wpdb;
+        $metaTable = $wpdb->prefix . 'rollback_activity_meta';
+        $activityTable = $wpdb->prefix . 'rollback_activity_log';
+        
+        // Check if Pro tables exist (they won't exist in Free version)
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- Table name can't be prepared
+        $tablesExist = $wpdb->get_var("SHOW TABLES LIKE '{$activityTable}'") === $activityTable;
+
+        // Delete all backup files and clean up database
+        foreach ($allBackups as $file) {
+            if (file_exists($file) && @unlink($file)) {
+                $deleted[] = basename($file);
+                
+                // Clean up database entries for this file (only if Pro tables exist)
+                if ($tablesExist) {
+                    // First, find the activity log entry by file path
+                    $activityId = $wpdb->get_var($wpdb->prepare(
+                        "SELECT rollback_id FROM {$metaTable} 
+                         WHERE meta_key = 'archive_file_path' 
+                         AND meta_value = %s 
+                         LIMIT 1",
+                        $file
+                    ));
+                    
+                    if ($activityId) {
+                        // Delete meta entries
+                        $wpdb->delete($metaTable, ['rollback_id' => $activityId], ['%d']);
+                        
+                        // Delete activity log entry
+                        $wpdb->delete($activityTable, ['id' => $activityId], ['%d']);
+                    }
+                }
+            }
+        }
+
+        return [
+            'deleted' => $deleted,
+            'count'   => count($deleted),
+        ];
+    }
+} 
