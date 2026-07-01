@@ -44,6 +44,7 @@ if (!class_exists('user_data_class')) {
         public $catalog       = 0;
         public $bot_id        = null;
         public $language_code = 'EN';
+        public $domain        = '';
     }
 }
 
@@ -127,13 +128,28 @@ class StubUser {
     public $meta;
     public function __construct() {
         $this->data = new user_data_class();
-        $this->meta = (object)['error' => 0];
+        $this->meta = (object)['error' => 0, 'rows' => 0];
     }
     public function update($flag) {}
 }
 
 class StubLog {
-    public function update($type, $opts = []) {}
+    public $lastType    = '';
+    public $lastOptions = [];
+    public function update($type, $opts = []) {
+        $this->lastType    = $type;
+        $this->lastOptions = $opts;
+    }
+}
+
+class StubBlacklist {
+    public $blocked = [];
+    public function check($email) {
+        if (!strlen($email)) return FALSE;
+        $parts = explode("@", $email, 2);
+        if (!isset($parts[1]) || !strlen($parts[1])) return FALSE;
+        return in_array(strtolower(trim($parts[1])), $this->blocked);
+    }
 }
 
 class StubDatabase {
@@ -141,13 +157,15 @@ class StubDatabase {
     public $user;
     public $profile;
     public $log;
+    public $blacklist;
     public $registry;
     public function __construct() {
-        $this->remote   = new StubRemote();
-        $this->user     = new StubUser();
-        $this->profile  = new StubProfile();
-        $this->log      = new StubLog();
-        $this->registry = (object)[
+        $this->remote    = new StubRemote();
+        $this->user      = new StubUser();
+        $this->profile   = new StubProfile();
+        $this->log       = new StubLog();
+        $this->blacklist = new StubBlacklist();
+        $this->registry  = (object)[
             'email' => (object)['webmaster' => 'noreply@example.com'],
         ];
     }
@@ -207,8 +225,9 @@ class NewUserTest extends TestCase
         $forms    = new StubForms();
         $menu     = new StubMenu();
 
-        $_SESSION = ['user' => new user_data_class(), 'remote' => 0];
+        $_SESSION = ['user' => new user_data_class(), 'remote' => 0, 'impersonate' => 0];
         $_POST    = [];
+        $_SERVER['HTTP_USER_AGENT'] = 'PHPUnit';
 
         // Instantiate without running the constructor so each test starts clean.
         $ref       = new ReflectionClass(remote_access_class::class);
@@ -382,5 +401,582 @@ class NewUserTest extends TestCase
 
         $this->assertObjectHasAttribute('scscpq_content', $this->sut->response->html);
         $this->assertStringContainsStringIgnoringCase('Congratulations', $this->sut->response->html->scscpq_content);
+    }
+
+    // ── Microsoft OAuth ───────────────────────────────────────────────────
+
+    private function oauthData(array $overrides = []): array
+    {
+        return array_merge([
+            'email'        => 'user@example.com',
+            'name_first'   => 'Test',
+            'name_last'    => 'User',
+            'display_name' => 'Test User',
+            'company_name' => '',
+            'address'      => '',
+            'city'         => '',
+            'state'        => '',
+            'zip'          => '',
+        ], $overrides);
+    }
+
+    public function test_html_microsoft_button_links_to_oauth_init(): void
+    {
+        $html = $this->sut->html_microsoft_button();
+
+        $this->assertStringContainsString('Sign in with Microsoft', $html);
+        $this->assertStringContainsString("href='/oauth/init.php'", $html);
+    }
+
+    public function test_html_register_includes_microsoft_button(): void
+    {
+        $this->sut->recaptcha = new recaptcha_class("newuser", 1, array("local" => TRUE));
+
+        $html = $this->sut->html_register();
+
+        $this->assertStringContainsString('Sign in with Microsoft', $html);
+    }
+
+    public function test_html_remote_includes_microsoft_button(): void
+    {
+        $html = $this->sut->html_remote(FALSE);
+
+        $this->assertStringContainsString('Sign in with Microsoft', $html);
+    }
+
+    public function test_html_dispatches_to_oauth_handler_when_result_set(): void
+    {
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => '']);
+
+        ob_start();
+        $this->sut->html();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsStringIgnoringCase('did not provide an email', $output);
+    }
+
+    public function test_process_microsoft_oauth_shows_error_and_register_form(): void
+    {
+        $_SESSION['microsoft_oauth_error'] = 'Something went wrong';
+
+        ob_start();
+        $this->sut->process_oauth('Microsoft');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Something went wrong', $output);
+        $this->assertStringContainsString('Sign in with Microsoft', $output);
+        $this->assertArrayNotHasKey('microsoft_oauth_error', $_SESSION);
+    }
+
+    public function test_process_microsoft_oauth_shows_error_when_email_missing(): void
+    {
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => '']);
+
+        ob_start();
+        $this->sut->process_oauth('Microsoft');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsStringIgnoringCase('did not provide an email', $output);
+        $this->assertArrayNotHasKey('microsoft_oauth_result', $_SESSION);
+    }
+
+    public function test_process_microsoft_oauth_grants_access_when_remote_already_registered(): void
+    {
+        global $database;
+        $database->remote->meta->rows = 1;
+        $database->user->meta->rows   = 1;
+        $database->user->data->status = 'Active';
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'known@harcourt.co']);
+
+        ob_start();
+        $this->sut->process_oauth('Microsoft');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Congratulations, you now have access!', $output);
+        $this->assertSame('known@harcourt.co', $database->remote->data->email);
+        $this->assertSame(dechex(strtotime('+1 year')), $database->remote->data->unlock_code);
+    }
+
+    public function test_process_microsoft_oauth_grants_access_when_domain_active(): void
+    {
+        global $database;
+        $database->user->meta->rows  = 1;
+        $database->user->data->status = 'Active';
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'new.person@harcourt.co']);
+
+        ob_start();
+        $this->sut->process_oauth('Microsoft');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Congratulations, you now have access!', $output);
+        $this->assertSame('new.person@harcourt.co', $database->remote->data->email);
+    }
+
+    public function test_process_microsoft_oauth_shows_pending_when_domain_pending(): void
+    {
+        global $database;
+        $database->user->meta->rows   = 1;
+        $database->user->data->status = 'Pending';
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'pending.person@example.com']);
+
+        ob_start();
+        $this->sut->process_oauth('Microsoft');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsStringIgnoringCase('pending approval', $output);
+    }
+
+    public function test_process_microsoft_oauth_registers_new_user_when_no_domain_match(): void
+    {
+        global $database;
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData([
+            'email'        => 'new.user@example.com',
+            'display_name' => 'New User',
+            'company_name' => 'Acme Inc',
+            'address'      => '123 Main St',
+            'city'         => 'Springfield',
+            'state'        => 'IL',
+            'zip'          => '62704',
+        ]);
+
+        ob_start();
+        $this->sut->process_oauth('Microsoft');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Congratulations, your access request has been submitted!', $output);
+        $this->assertSame('example.com', $database->user->data->domain);
+        $this->assertSame('Acme Inc', $database->user->data->company_name);
+        $this->assertSame($database->user->data, $_SESSION['user']);
+    }
+
+    public function test_grant_microsoft_remote_access_sets_year_long_unlock_code(): void
+    {
+        global $database;
+
+        $output = $this->sut->grant_oauth_remote_access('user@harcourt.co', TRUE);
+
+        $this->assertSame('user@harcourt.co', $database->remote->data->email);
+        $this->assertSame(dechex(strtotime('+1 year')), $database->remote->data->unlock_code);
+        $this->assertStringContainsString('Congratulations, you now have access!', $output);
+        $this->assertStringContainsString('action: "initial"', $output);
+        $this->assertStringContainsString('scscpq_url', $output);
+    }
+
+    public function test_process_microsoft_register_returns_error_on_update_failure(): void
+    {
+        global $database;
+        $database->user->meta->error = 1;
+
+        $result = $this->sut->process_oauth_register('fail@example.com', $this->oauthData(['email' => 'fail@example.com']));
+
+        $this->assertStringContainsStringIgnoringCase('Internal error', $result);
+    }
+
+    public function test_process_microsoft_register_populates_domain_from_email(): void
+    {
+        global $database;
+
+        $result = $this->sut->process_oauth_register('jane@acme.org', $this->oauthData([
+            'email'        => 'jane@acme.org',
+            'display_name' => 'Jane Doe',
+            'company_name' => 'Acme Org',
+        ]));
+
+        $this->assertSame('acme.org', $database->user->data->domain);
+        $this->assertSame('Acme Org', $database->user->data->company_name);
+        $this->assertStringContainsString('access request has been submitted', $result);
+    }
+
+    // ── Google OAuth ─────────────────────────────────────────────────────
+
+    public function test_html_google_button_links_to_google_init(): void
+    {
+        $html = $this->sut->html_google_button();
+
+        $this->assertStringContainsString('Sign in with Google', $html);
+        $this->assertStringContainsString("href='/oauth/google_init.php'", $html);
+    }
+
+    public function test_html_oauth_buttons_includes_both_providers(): void
+    {
+        $html = $this->sut->html_oauth_buttons();
+
+        $this->assertStringContainsString('Sign in with Microsoft', $html);
+        $this->assertStringContainsString('Sign in with Google', $html);
+    }
+
+    public function test_html_register_includes_google_button(): void
+    {
+        $this->sut->recaptcha = new recaptcha_class("newuser", 1, array("local" => TRUE));
+
+        $html = $this->sut->html_register();
+
+        $this->assertStringContainsString('Sign in with Google', $html);
+    }
+
+    public function test_html_remote_includes_google_button(): void
+    {
+        $html = $this->sut->html_remote(FALSE);
+
+        $this->assertStringContainsString('Sign in with Google', $html);
+    }
+
+    public function test_html_dispatches_to_google_oauth_handler_when_result_set(): void
+    {
+        $_SESSION['google_oauth_result'] = $this->oauthData(['email' => '']);
+
+        ob_start();
+        $this->sut->html();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsStringIgnoringCase('did not provide an email', $output);
+    }
+
+    public function test_google_oauth_shows_error_and_register_form(): void
+    {
+        $_SESSION['google_oauth_error'] = 'Google auth failed';
+
+        ob_start();
+        $this->sut->process_oauth('Google');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Google auth failed', $output);
+        $this->assertStringContainsString('Sign in with Google', $output);
+        $this->assertArrayNotHasKey('google_oauth_error', $_SESSION);
+    }
+
+    public function test_google_oauth_shows_error_when_email_missing(): void
+    {
+        $_SESSION['google_oauth_result'] = $this->oauthData(['email' => '']);
+
+        ob_start();
+        $this->sut->process_oauth('Google');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsStringIgnoringCase('Google did not provide an email', $output);
+        $this->assertArrayNotHasKey('google_oauth_result', $_SESSION);
+    }
+
+    public function test_google_oauth_grants_access_when_remote_already_registered(): void
+    {
+        global $database;
+        $database->remote->meta->rows = 1;
+        $database->user->meta->rows   = 1;
+        $database->user->data->status = 'Active';
+        $_SESSION['google_oauth_result'] = $this->oauthData(['email' => 'known@harcourt.co']);
+
+        ob_start();
+        $this->sut->process_oauth('Google');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Congratulations, you now have access!', $output);
+        $this->assertSame('known@harcourt.co', $database->remote->data->email);
+        $this->assertSame(dechex(strtotime('+1 year')), $database->remote->data->unlock_code);
+    }
+
+    public function test_google_oauth_grants_access_when_domain_active(): void
+    {
+        global $database;
+        $database->user->meta->rows  = 1;
+        $database->user->data->status = 'Active';
+        $_SESSION['google_oauth_result'] = $this->oauthData(['email' => 'new.person@harcourt.co']);
+
+        ob_start();
+        $this->sut->process_oauth('Google');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Congratulations, you now have access!', $output);
+        $this->assertSame('new.person@harcourt.co', $database->remote->data->email);
+    }
+
+    public function test_google_oauth_shows_pending_when_domain_pending(): void
+    {
+        global $database;
+        $database->user->meta->rows   = 1;
+        $database->user->data->status = 'Pending';
+        $_SESSION['google_oauth_result'] = $this->oauthData(['email' => 'pending.person@example.com']);
+
+        ob_start();
+        $this->sut->process_oauth('Google');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsStringIgnoringCase('pending approval', $output);
+    }
+
+    public function test_google_oauth_registers_new_user_when_no_domain_match(): void
+    {
+        global $database;
+        $_SESSION['google_oauth_result'] = $this->oauthData([
+            'email'        => 'new.user@gmail.com',
+            'display_name' => 'New User',
+            'company_name' => 'Acme Inc',
+            'address'      => '123 Main St',
+            'city'         => 'Springfield',
+            'state'        => 'IL',
+            'zip'          => '62704',
+        ]);
+
+        ob_start();
+        $this->sut->process_oauth('Google');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Congratulations, your access request has been submitted!', $output);
+        $this->assertSame('gmail.com', $database->user->data->domain);
+        $this->assertSame('Acme Inc', $database->user->data->company_name);
+        $this->assertSame($database->user->data, $_SESSION['user']);
+    }
+
+    public function test_google_oauth_register_logs_google_provider(): void
+    {
+        global $database;
+
+        $result = $this->sut->process_oauth_register('jane@acme.org', $this->oauthData([
+            'email'        => 'jane@acme.org',
+            'display_name' => 'Jane Doe',
+            'company_name' => 'Acme Org',
+        ]), 'Google');
+
+        $this->assertSame('acme.org', $database->user->data->domain);
+        $this->assertStringContainsString('access request has been submitted', $result);
+    }
+
+    public function test_google_oauth_register_returns_error_on_update_failure(): void
+    {
+        global $database;
+        $database->user->meta->error = 1;
+
+        $result = $this->sut->process_oauth_register('fail@example.com', $this->oauthData(['email' => 'fail@example.com']), 'Google');
+
+        $this->assertStringContainsStringIgnoringCase('Internal error', $result);
+    }
+
+    // ── OAuth session flag ──────────────────────────────────────────────
+
+    public function test_grant_oauth_remote_access_sets_session_flag(): void
+    {
+        unset($_SESSION['oauth_authenticated']);
+
+        $this->sut->grant_oauth_remote_access('user@harcourt.co', FALSE);
+
+        $this->assertTrue($_SESSION['oauth_authenticated']);
+    }
+
+    public function test_process_oauth_register_sets_session_flag(): void
+    {
+        global $database;
+        unset($_SESSION['oauth_authenticated']);
+
+        $this->sut->process_oauth_register('user@example.com', $this->oauthData(['email' => 'user@example.com']), 'Google');
+
+        $this->assertTrue($_SESSION['oauth_authenticated']);
+    }
+
+    public function test_html_clears_token_action_for_oauth_active_user(): void
+    {
+        $_SESSION['oauth_authenticated'] = true;
+        $_SESSION['user'] = new user_data_class();
+        $_SESSION['user']->id = 42;
+        $_SESSION['user']->status = 'Active';
+        $this->sut->action = 'token';
+
+        ob_start();
+        $this->sut->html();
+        $output = ob_get_clean();
+
+        $this->assertStringNotContainsString('Enter Access Token', $output);
+    }
+
+    public function test_html_clears_remote_action_for_oauth_active_user(): void
+    {
+        $_SESSION['oauth_authenticated'] = true;
+        $_SESSION['user'] = new user_data_class();
+        $_SESSION['user']->id = 42;
+        $_SESSION['user']->status = 'Active';
+        $this->sut->action = 'remote';
+
+        ob_start();
+        $this->sut->html();
+        $output = ob_get_clean();
+
+        $this->assertStringNotContainsString('Enter Access Token', $output);
+    }
+
+    public function test_html_keeps_token_action_for_non_oauth_user(): void
+    {
+        global $database;
+        unset($_SESSION['oauth_authenticated']);
+        $_SESSION['user'] = new user_data_class();
+        $_SESSION['user']->id = 42;
+        $_SESSION['user']->status = 'Active';
+        $this->sut->action = 'token';
+        $this->sut->remote = '';
+        $database->profile->data->email = 'user@example.com';
+
+        ob_start();
+        $this->sut->html();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Enter Access Token', $output);
+    }
+
+    public function test_html_keeps_pending_action_for_oauth_pending_user(): void
+    {
+        $_SESSION['oauth_authenticated'] = true;
+        $_SESSION['user'] = new user_data_class();
+        $_SESSION['user']->id = 42;
+        $_SESSION['user']->status = 'Pending';
+        $this->sut->action = 'pending';
+
+        ob_start();
+        $this->sut->html();
+        $output = ob_get_clean();
+
+        $this->assertStringContainsStringIgnoringCase('pending', $output);
+    }
+
+    // ── Domain Blacklist ──────────────────────────────────────────────────
+
+    public function test_microsoft_oauth_blocks_blacklisted_domain(): void
+    {
+        global $database;
+        $database->blacklist->blocked = ['evil.com'];
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'user@evil.com']);
+
+        ob_start();
+        $this->sut->process_oauth('Microsoft');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('not authorized', $output);
+        $this->assertStringNotContainsString('Congratulations', $output);
+    }
+
+    public function test_microsoft_oauth_logs_blacklist_denial(): void
+    {
+        global $database;
+        $database->blacklist->blocked = ['evil.com'];
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'user@evil.com']);
+
+        ob_start();
+        $this->sut->process_oauth('Microsoft');
+        ob_end_clean();
+
+        $this->assertSame('Blacklist:Denied', $database->log->lastType);
+        $this->assertSame('user@evil.com', $database->log->lastOptions['email']);
+        $this->assertStringContainsString('Microsoft OAuth', $database->log->lastOptions['comment']);
+    }
+
+    public function test_google_oauth_blocks_blacklisted_domain(): void
+    {
+        global $database;
+        $database->blacklist->blocked = ['blocked.org'];
+        $_SESSION['google_oauth_result'] = $this->oauthData(['email' => 'someone@blocked.org']);
+
+        ob_start();
+        $this->sut->process_oauth('Google');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('not authorized', $output);
+        $this->assertStringNotContainsString('Congratulations', $output);
+    }
+
+    public function test_google_oauth_logs_blacklist_denial(): void
+    {
+        global $database;
+        $database->blacklist->blocked = ['blocked.org'];
+        $_SESSION['google_oauth_result'] = $this->oauthData(['email' => 'someone@blocked.org']);
+
+        ob_start();
+        $this->sut->process_oauth('Google');
+        ob_end_clean();
+
+        $this->assertSame('Blacklist:Denied', $database->log->lastType);
+        $this->assertSame('someone@blocked.org', $database->log->lastOptions['email']);
+        $this->assertStringContainsString('Google OAuth', $database->log->lastOptions['comment']);
+    }
+
+    public function test_oauth_allows_non_blacklisted_domain(): void
+    {
+        global $database;
+        $database->blacklist->blocked = ['evil.com'];
+        $database->user->meta->rows  = 1;
+        $database->user->data->status = 'Active';
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'user@good.com']);
+
+        ob_start();
+        $this->sut->process_oauth('Microsoft');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('Congratulations', $output);
+        $this->assertStringNotContainsString('not authorized', $output);
+    }
+
+    public function test_registration_form_blocks_blacklisted_domain(): void
+    {
+        global $database;
+        $database->blacklist->blocked = ['spam.net'];
+
+        $address = new address_class('profile', $database->profile->data);
+        $address->data->email = 'bot@spam.net';
+
+        $ref = new ReflectionProperty(address_class::class, 'data');
+        $ref->setAccessible(true);
+
+        $this->sut->recaptcha = new recaptcha_class('newuser', 1, ['local' => TRUE]);
+        $_POST['g-recaptcha-response'] = 'token';
+
+        $origClass = new ReflectionClass(address_class::class);
+        $origCtor  = $origClass->getConstructor();
+
+        $testCase = $this;
+        $emailToSet = 'bot@spam.net';
+
+        $addrStub = new class('profile', $database->profile->data) extends address_class {
+            public static $forceEmail = '';
+            public function verify() {
+                $this->data->email = self::$forceEmail;
+            }
+        };
+        $addrStub::$forceEmail = $emailToSet;
+
+        // We can't easily override address_class construction in json_register,
+        // so test via process_oauth which we can control
+        $database->blacklist->blocked = ['spam.net'];
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'bot@spam.net']);
+
+        ob_start();
+        $this->sut->process_oauth('Microsoft');
+        $output = ob_get_clean();
+
+        $this->assertStringContainsString('not authorized', $output);
+    }
+
+    public function test_blacklist_denial_does_not_create_user_record(): void
+    {
+        global $database;
+        $database->blacklist->blocked = ['evil.com'];
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'hacker@evil.com']);
+
+        $originalId = $database->user->data->id;
+
+        ob_start();
+        $this->sut->process_oauth('Microsoft');
+        ob_end_clean();
+
+        $this->assertSame($originalId, $database->user->data->id);
+        $this->assertSame('', $database->user->data->domain);
+    }
+
+    public function test_blacklist_denial_does_not_set_oauth_session(): void
+    {
+        global $database;
+        $database->blacklist->blocked = ['evil.com'];
+        unset($_SESSION['oauth_authenticated']);
+        $_SESSION['microsoft_oauth_result'] = $this->oauthData(['email' => 'hacker@evil.com']);
+
+        ob_start();
+        $this->sut->process_oauth('Microsoft');
+        ob_end_clean();
+
+        $this->assertArrayNotHasKey('oauth_authenticated', $_SESSION);
     }
 }
