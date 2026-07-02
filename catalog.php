@@ -31,6 +31,7 @@ class catalog_output_class {
     var $email;
     var $request=array();
     var $trace=array();
+    var $blocked_categories;
 	function scs_table_version() {
 		$results=array();
         $results['11/25/2025']="New hero, portal format, related";
@@ -651,18 +652,24 @@ class catalog_output_class {
         $this->output_summary($summary_list);
 		print "</div> <!-- products_summary -->";
     }
-    function output_summary($summary_list) {
-	    global $database, $forms, $menu;
-    	$this->trace[]=__FUNCTION__;
-        $blocked_categories=array();
+    function blocked_categories() {
+        global $database;
+        if (is_array($this->blocked_categories)) return $this->blocked_categories;
+        $this->blocked_categories=array();
         if ($_SESSION['user']->id && !isset($_SESSION['user']->bot_code)) {
             $query="SELECT category_id FROM user_category WHERE user_id=" . fn_escape($_SESSION['user']->id,FALSE);
             $database->temp->query($query);
             while ($database->temp->fetch=$database->temp->fetch_array()) {
-                $blocked_categories[]=intval($database->temp->fetch['category_id']);
+                $this->blocked_categories[]=intval($database->temp->fetch['category_id']);
             }
             $database->temp->free_result();
         }
+        return $this->blocked_categories;
+    }
+    function output_summary($summary_list) {
+	    global $database, $forms, $menu;
+    	$this->trace[]=__FUNCTION__;
+        $blocked_categories=$this->blocked_categories();
         $url_query=array();
         $url_query['lang']=strtolower($_SESSION['user']->language_code);
         if ($this->request['debug']) $url_query['debug']=1;
@@ -1157,6 +1164,7 @@ class catalog_output_class {
 		if ( ($this->subcategory[$this->subcategory_id]->output) || (!sizeof($data)) ) return;
 		if ( ($this->action=="subcategory") && ($this->search_code) ) $this->tabs->landing_tab();
 		$category_id=$this->subcategory[$this->subcategory_id]->category_id;
+		$blocked=in_array($category_id,$this->blocked_categories());
         $database->subcategory->data=$this->subcategory[$this->subcategory_id];
         $menu->configure=new configure_class("");
 		$results=array();
@@ -1207,7 +1215,7 @@ class catalog_output_class {
               case ($database->inventory->data->new_date >= $database->inventory->new_date() ):
                 $text[]=$forms->font("red","*");
             }
-            $text[]=fn_href($database->inventory->data->sku,$this->php_self,$url_query);
+            $text[]=$blocked ? $database->inventory->data->sku : fn_href($database->inventory->data->sku,$this->php_self,$url_query);
             $results[]="<td class='nobr'>" . implode("",$text) . "</td>";
             foreach ($this->subcategory[$this->subcategory_id]->parameters as $parameter) {
                 switch (TRUE) {
