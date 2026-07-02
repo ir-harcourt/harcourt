@@ -705,7 +705,8 @@ class catalog_output_class {
                 $text=array();
                 $text[]="<span class='subcat" . $subcategory->id . "'></span>";
                 $text[]=$subcategory->name;
-                $results[]="<li {$li_style}>" . fn_href(implode("", $text), $this->php_self, $url_query, $href_query) . "</li>";
+                $link=$blocked ? implode("", $text) : fn_href(implode("", $text), $this->php_self, $url_query, $href_query);
+                $results[]="<li {$li_style}>" . $link . "</li>";
             }
             $results[]="</ul>";
 			$results[]="</div>";
