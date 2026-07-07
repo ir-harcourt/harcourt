@@ -36,14 +36,12 @@ set_include_path(
 require_once 'database_mysqli.php';
 require_once 'functions.php';
 
-// Mirror scs_header.php connection logic exactly
-if (fn_development_server()) {
-    $database->connect("localhost", "demo", "suburban", "harcourt");
-} elseif (gethostname() === 'stage.harcourt.co') {
-    $database->connect("localhost", "harcou6_wp_kggm0", "Va#6rmW@36fQ9LrG", "harcou6_wp_bllqe");
-} else {
-    $database->connect("localhost", "harcou6_wp_kggm0", "Va#6rmW@36fQ9LrG", "harcou6_wp_bllqe");
+$env = @parse_ini_file(MIGRATE_ROOT . '/.env');
+if ($env === false) {
+    exit("Missing .env file. Copy .env.example to .env and fill in the database credentials.\n");
 }
+
+$database->connect($env['DB_HOST'], $env['DB_USER'], $env['DB_PASS'], $env['DB_NAME']);
 $database->set_charset("utf8mb4");
 
 // ─── Terminal output ──────────────────────────────────────────────────────────
