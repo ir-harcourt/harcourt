@@ -1407,6 +1407,7 @@ EOT;
     align-items: center;
     justify-content: center;
     z-index: 10;
+    cursor: not-allowed;
 }
 .catalog_category_overlay_message {
     text-align: center;
@@ -1420,6 +1421,7 @@ EOT;
 }
 .catalog_category_overlay_message a {
     color: #e51c38;
+    cursor: pointer;
 }
 </style>
 EOT;
