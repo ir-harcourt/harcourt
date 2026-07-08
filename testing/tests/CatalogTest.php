@@ -373,6 +373,9 @@ class CatalogTest extends TestCase
         // The subcategory name is plain text, not wrapped in the fn_href link the
         // stub produces (the overlay's own "Contact Us" link is unrelated and expected).
         $this->assertStringNotContainsString("<a href='#'><span class='subcat20'>", $html);
+        // catalog_blocked_link carries cursor: not-allowed so the block still reads
+        // as inaccessible even if the overlay itself is removed via devtools.
+        $this->assertStringContainsString("<span class='catalog_blocked_link'>", $html);
         $this->assertStringContainsString('Antivirus', $html);
     }
 
@@ -398,6 +401,7 @@ class CatalogTest extends TestCase
 
         $this->assertStringNotContainsString('catalog_category_overlay', $html);
         $this->assertStringContainsString("<a href='#'><span class='subcat20'>", $html);
+        $this->assertStringNotContainsString('catalog_blocked_link', $html);
         $this->assertStringContainsString('Antivirus', $html);
     }
 
@@ -467,6 +471,7 @@ class CatalogTest extends TestCase
 
         $this->assertStringContainsString('SKU-100', $html);
         $this->assertStringNotContainsString("<a href='#'>SKU-100</a>", $html);
+        $this->assertStringContainsString("<span class='catalog_blocked_link'>SKU-100</span>", $html);
     }
 
     /** @runInSeparateProcess @preserveGlobalState disabled */
@@ -495,5 +500,6 @@ class CatalogTest extends TestCase
         $html = implode('', (array) $obj->inventory($data));
 
         $this->assertStringContainsString("<a href='#'>SKU-100</a>", $html);
+        $this->assertStringNotContainsString('catalog_blocked_link', $html);
     }
 }

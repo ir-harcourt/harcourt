@@ -712,7 +712,7 @@ class catalog_output_class {
                 $text=array();
                 $text[]="<span class='subcat" . $subcategory->id . "'></span>";
                 $text[]=$subcategory->name;
-                $link=$blocked ? implode("", $text) : fn_href(implode("", $text), $this->php_self, $url_query, $href_query);
+                $link=$blocked ? "<span class='catalog_blocked_link'>" . implode("", $text) . "</span>" : fn_href(implode("", $text), $this->php_self, $url_query, $href_query);
                 $results[]="<li {$li_style}>" . $link . "</li>";
             }
             $results[]="</ul>";
@@ -1215,7 +1215,7 @@ class catalog_output_class {
               case ($database->inventory->data->new_date >= $database->inventory->new_date() ):
                 $text[]=$forms->font("red","*");
             }
-            $text[]=$blocked ? $database->inventory->data->sku : fn_href($database->inventory->data->sku,$this->php_self,$url_query);
+            $text[]=$blocked ? "<span class='catalog_blocked_link'>" . $database->inventory->data->sku . "</span>" : fn_href($database->inventory->data->sku,$this->php_self,$url_query);
             $results[]="<td class='nobr'>" . implode("",$text) . "</td>";
             foreach ($this->subcategory[$this->subcategory_id]->parameters as $parameter) {
                 switch (TRUE) {
@@ -1422,6 +1422,9 @@ EOT;
 .catalog_category_overlay_message a {
     color: #e51c38;
     cursor: pointer;
+}
+.catalog_blocked_link {
+    cursor: not-allowed;
 }
 </style>
 EOT;
