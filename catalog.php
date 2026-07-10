@@ -31,6 +31,7 @@ class catalog_output_class {
     var $email;
     var $request=array();
     var $trace=array();
+    var $blocked_categories;
 	function scs_table_version() {
 		$results=array();
         $results['11/25/2025']="New hero, portal format, related";
@@ -651,9 +652,24 @@ class catalog_output_class {
         $this->output_summary($summary_list);
 		print "</div> <!-- products_summary -->";
     }
+    function blocked_categories() {
+        global $database;
+        if (is_array($this->blocked_categories)) return $this->blocked_categories;
+        $this->blocked_categories=array();
+        if ($_SESSION['user']->id && !isset($_SESSION['user']->bot_code)) {
+            $query="SELECT category_id FROM user_category WHERE user_id=" . fn_escape($_SESSION['user']->id,FALSE);
+            $database->temp->query($query);
+            while ($database->temp->fetch=$database->temp->fetch_array()) {
+                $this->blocked_categories[]=intval($database->temp->fetch['category_id']);
+            }
+            $database->temp->free_result();
+        }
+        return $this->blocked_categories;
+    }
     function output_summary($summary_list) {
 	    global $database, $forms, $menu;
     	$this->trace[]=__FUNCTION__;
+        $blocked_categories=$this->blocked_categories();
         $url_query=array();
         $url_query['lang']=strtolower($_SESSION['user']->language_code);
         if ($this->request['debug']) $url_query['debug']=1;
@@ -663,7 +679,9 @@ class catalog_output_class {
         $url_query['subcategory_id']=0;
         if ($this->new_date) $url_query['new_date']=1;
 		foreach ($summary_list as $category_id => $subcategory_list) {
+			$blocked=in_array($category_id,$blocked_categories);
 			$results[]="<a class=anchor id=category{$category_id}></a><h2>" . $this->category[$category_id]->name . "</h2>";
+			$results[]="<div class='catalog_category_wrapper'>";
         	$results[]="<div class=catalog_subcategory_list>";
             $results[]="<ul>";
 
@@ -694,10 +712,17 @@ class catalog_output_class {
                 $text=array();
                 $text[]="<span class='subcat" . $subcategory->id . "'></span>";
                 $text[]=$subcategory->name;
-                $results[]="<li {$li_style}>" . fn_href(implode("", $text), $this->php_self, $url_query, $href_query) . "</li>";
+                $link=$blocked ? "<span class='catalog_blocked_link'>" . implode("", $text) . "</span>" : fn_href(implode("", $text), $this->php_self, $url_query, $href_query);
+                $results[]="<li {$li_style}>" . $link . "</li>";
             }
             $results[]="</ul>";
 			$results[]="</div>";
+            if ($blocked) {
+                $results[]="<div class='catalog_category_overlay'>";
+                $results[]="<div class='catalog_category_overlay_message'>Integrator Agreement Required for Access. " . fn_href("Contact Us","/contact") . " for more information.</div>";
+                $results[]="</div>";
+            }
+            $results[]="</div>";
         }
 		$results[]="</div>";
 		print implode("\n",$results);
@@ -1139,6 +1164,7 @@ class catalog_output_class {
 		if ( ($this->subcategory[$this->subcategory_id]->output) || (!sizeof($data)) ) return;
 		if ( ($this->action=="subcategory") && ($this->search_code) ) $this->tabs->landing_tab();
 		$category_id=$this->subcategory[$this->subcategory_id]->category_id;
+		$blocked=in_array($category_id,$this->blocked_categories());
         $database->subcategory->data=$this->subcategory[$this->subcategory_id];
         $menu->configure=new configure_class("");
 		$results=array();
@@ -1189,7 +1215,7 @@ class catalog_output_class {
               case ($database->inventory->data->new_date >= $database->inventory->new_date() ):
                 $text[]=$forms->font("red","*");
             }
-            $text[]=fn_href($database->inventory->data->sku,$this->php_self,$url_query);
+            $text[]=$blocked ? "<span class='catalog_blocked_link'>" . $database->inventory->data->sku . "</span>" : fn_href($database->inventory->data->sku,$this->php_self,$url_query);
             $results[]="<td class='nobr'>" . implode("",$text) . "</td>";
             foreach ($this->subcategory[$this->subcategory_id]->parameters as $parameter) {
                 switch (TRUE) {
@@ -1364,6 +1390,41 @@ EOT;
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+.catalog_category_wrapper {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+.catalog_category_overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    cursor: not-allowed;
+}
+.catalog_category_overlay_message {
+    text-align: center;
+    padding: 20px 30px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.85);
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.catalog_category_overlay_message a {
+    color: #e51c38;
+    cursor: pointer;
+}
+.catalog_blocked_link {
+    cursor: not-allowed;
 }
 </style>
 EOT;
