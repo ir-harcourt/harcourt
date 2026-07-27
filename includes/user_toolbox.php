@@ -288,8 +288,8 @@ class user_toolbox_class {
 			switch (TRUE) {
               case ($this->recaptcha->ignore):
 	            $database->user->data=new user_data_class();
-	            $databsae->user->data->role="";
-	            $databsae->user->data->status="Reject";
+	            $database->user->data->role="";
+	            $database->user->data->status="Reject";
 	            $database->user->session(FALSE);
             	fn_url_redirect($menu->page->home);
                 break;
