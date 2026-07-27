@@ -122,7 +122,7 @@ class scscpq_wp_class {
 	    if (!$database->user->meta->rows) return FALSE;
         $database->user->update(TRUE);
 		$database->user->data->token=$this->token;
-        $databsae->user->session();
+        $database->user->session();
     }
     function impersonate() {
         global $database, $menu, $forms;
