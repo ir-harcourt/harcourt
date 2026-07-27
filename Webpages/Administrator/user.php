@@ -14,6 +14,7 @@ $report['report_status']=$_POST['report_status'];
 $report['report_company']=$_POST['report_company'];
 if ($report['record_id']) $database->user->read($report['record_id']);
 $document=array();
+$blocked_categories=array();
 
 switch ($report['action']) {
   case "":
@@ -43,6 +44,12 @@ switch ($report['action']) {
             $document[$database->userdocument->data->document_id]=TRUE;
         }
         $database->userdocument->free_result();
+        $query="SELECT category_id FROM user_category WHERE user_id=" . fn_escape($database->user->data->id,FALSE);
+        $database->temp->query($query);
+        while ($database->temp->fetch=$database->temp->fetch_array()) {
+            $blocked_categories[]=$database->temp->fetch['category_id'];
+        }
+        $database->temp->free_result();
     }
     break;
   case "update":
@@ -82,6 +89,16 @@ switch ($report['action']) {
         $database->userdocument->query($query);
         foreach ($document as $key => $value) {
 			$database->userdocument->update($database->user->data->id,$key);
+        }
+        $blocked_categories=array();
+        foreach ($_POST as $field => $value) {
+            $field_data=explode("\t",base64_decode($field));
+            if ($field_data[0] != "user_category") continue;
+            $blocked_categories[]=intval($field_data[1]);
+        }
+        $database->temp->query("DELETE FROM user_category WHERE user_id=" . fn_escape($database->user->data->id,FALSE));
+        foreach ($blocked_categories as $category_id) {
+            $database->temp->query("INSERT INTO user_category (user_id, category_id) VALUES (" . fn_escape($database->user->data->id,FALSE) . "," . fn_escape($category_id,FALSE) . ")");
         }
         if ($report['return_url']) fn_url_redirect($report['return_url']);
 	}
@@ -192,6 +209,19 @@ switch (TRUE) {
         print "</tr>\n";
 	}
     $database->document->free_result();
+    print "<tr><td colspan=2>&nbsp;</td></tr>\n";
+    print "<tr><td colspan=2><b>Category Access</b> &mdash; check to restrict access</td></tr>\n";
+    $database->category->query("SELECT * FROM category WHERE active=1 ORDER BY sort_order,name");
+    while ($database->category->fetch=$database->category->fetch_array()) {
+        $database->category->fetch();
+        $checked=in_array($database->category->data->id,$blocked_categories) ? "checked" : "";
+        $field=base64_encode("user_category\t" . $database->category->data->id);
+        print "<tr>\n";
+        print "<td>" . $database->category->data->name . "</td>\n";
+        print "<td><input type=checkbox name='" . $field . "' value='1' {$checked}></td>\n";
+        print "</tr>\n";
+    }
+    $database->category->free_result();
     print "</table>\n";
 	print "<p class='standard center'>\n";
 	print "<input class=fbutton type=button value='Update' onclick=\"javascript:fn_action(this,'update','" . $database->user->data->id . "','');\"> \n";
