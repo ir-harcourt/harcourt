@@ -995,7 +995,7 @@ class NewUserTest extends TestCase
 
         $this->sut->json_register();
 
-        $this->assertStringContainsString('Congratulations', $this->sut->response->html->profile_register);
+        $this->assertStringContainsString('unable to verify your submission', $this->sut->response->html->profile_register);
         $this->assertSame('Recaptcha:Blocked', $database->log->lastType);
     }
 
