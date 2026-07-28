@@ -84,7 +84,7 @@ class remote_access_class {
         $address->registry->email="required";
         $address->verify();
         if ($this->recaptcha_spam("registration form", $address->data->email)) {
-            $this->response->html->profile_register = "<p style='color:red;'>We were unable to verify your submission. Please try again, or contact us directly at sales@harcourt.co if the issue continues.</p>";
+            $this->response->html->profile_register = "<p style='color:red;'>We were unable to verify your submission. Please try again, or contact us directly at <a href='mailto:sales@harcourt.co'>sales@harcourt.co</a> if the issue continues.</p>";
             return;
         }
         if ($database->blacklist->check($address->data->email)) {
