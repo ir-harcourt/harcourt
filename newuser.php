@@ -69,9 +69,7 @@ class remote_access_class {
           	$this->json_verify();
           	break;
 		  case "token":
-          	$this->json_email($database->profile->data->email);
-            $this->response->html->unlock_code_error="";
-            $this->response->html->unlock_code_message="Access token has been sent";
+          	$this->json_token();
           	break;
 		}
 		die(json_encode($this->response));
@@ -80,11 +78,15 @@ class remote_access_class {
         global $database, $forms, $menu;
         $this->trace[]=__FUNCTION__;
 		$this->recaptcha=new recaptcha_class("newuser",1,array("local"=>TRUE));
-		$this->recaptcha->score($_POST['g-recaptcha-response']);
+		$this->recaptcha->score($_POST['g-recaptcha-response'] ?? '');
 
         $address=new address_class("profile", $database->profile->data, array("order"=>array("email", "name")));
         $address->registry->email="required";
         $address->verify();
+        if ($this->recaptcha_spam("registration form", $address->data->email)) {
+            $this->response->html->profile_register = "<h2 class='page-subtitle editable h2-login'>Congratulations, you now have access!<h2>";
+            return;
+        }
         if ($database->blacklist->check($address->data->email)) {
             $options = array();
             $options['email'] = $address->data->email;
@@ -108,6 +110,15 @@ class remote_access_class {
           } else {
             $this->response->html->profile_register=$this->json_register_update();
         }
+    }
+    function recaptcha_spam($comment_context, $email="") {
+        global $database;
+        if ($this->recaptcha->score > $database->registry->recaptcha->score_spam) return FALSE;
+        $options=array();
+        if (strlen($email)) $options['email']=$email;
+        $options['comment']="reCAPTCHA score " . $this->recaptcha->score . " at or below spam threshold " . $database->registry->recaptcha->score_spam . " ({$comment_context})";
+        $database->log->update("Recaptcha:Blocked", $options);
+        return TRUE;
     }
     function json_register_update() {
         global $database, $forms, $menu;
@@ -152,12 +163,18 @@ class remote_access_class {
     function json_verify() {
     	global $database, $forms, $menu;
         $this->trace[]=__FUNCTION__;
+		$this->recaptcha=new recaptcha_class("newuser",1,array("local"=>TRUE));
+		$this->recaptcha->score($_POST['g-recaptcha-response'] ?? '');
 		if (!isset($_SESSION['remote'])) $_SESSION['remote']=0;
 		$timestamp=hexdec($database->remote->data->unlock_code);
 		$this->expiry=date("r",$timestamp);
         $this->unlock_code=trim($_POST['unlock_code']);
         $error=null;
         switch (TRUE) {
+          case ($this->recaptcha_spam("access token verify")):
+          	$_SESSION['remote']++;
+          	$error="Invalid access token (" . $_SESSION['remote'] . " of 3)";
+          	break;
           case (!strlen($this->unlock_code)):
           	$error="Cannot be blank";
           	break;
@@ -207,6 +224,15 @@ class remote_access_class {
 		}
         if ($_SESSION['user']->catalog) $results[]="<p>" . $forms->button("Click Here To Enter Our Catalog" ,array("class"=>"red-button","onclick"=>"window.location.replace('{$url}');")) . "</p>";
         return implode("",$results);
+    }
+    function json_token() {
+    	global $database;
+        $this->trace[]=__FUNCTION__;
+		$this->recaptcha=new recaptcha_class("newuser",1,array("local"=>TRUE));
+		$this->recaptcha->score($_POST['g-recaptcha-response'] ?? '');
+		if (!$this->recaptcha_spam("resend access token", $database->profile->data->email)) $this->json_email($database->profile->data->email);
+        $this->response->html->unlock_code_error="";
+        $this->response->html->unlock_code_message="Access token has been sent";
     }
     function json_email($email) {
     	global $database, $forms, $menu;
@@ -508,6 +534,7 @@ class remote_access_class {
         global $database, $forms, $menu;
         $this->trace[]=__FUNCTION__;
     	$results=array();
+	    $results[]=$this->recaptcha->js();
 	    $results[]="<h2 class='page-subtitle editable h2-login'>Welcome " . $database->user->data->company_name . " Employee</h2>";
         $results[]="<p>Access token has been mailed from " . $database->registry->email->webmaster . ". Please check your inbox or spam folder.</p>";
         $text=array();
@@ -523,11 +550,12 @@ class remote_access_class {
         $results[]="<div id=scscpq_remote>" . implode(" ",$text)  . "</div>";
         $text=array("Enter Access Token:");
 		$text[]=$forms->text("unlock_code","",10,10,"",array("class"=>"scscpq_input"));
-		$text[]=$forms->button("Submit",array("onclick"=>"fn_newuser('remote');","class"=>"red-button"));
+		$text[]=$this->recaptcha->button("Submit",array("class"=>"red-button","id"=>"recaptcha_button_verify","data"=>array("data-callback"=>"recaptcha_script_verify")));
         $results[]="<div style='font-size: 20px;'>" . implode(" ",$text) . "</div>";
         $results[]="<div id=unlock_code_error></div>";
+        $results[]="<div id=recaptcha_status></div>";
         $text=array();
-        $text[]=$forms->button("Resend Access Token",array("onclick"=>"fn_newuser('token');","class"=>"red-button"));
+        $text[]=$this->recaptcha->button("Resend Access Token",array("class"=>"red-button","id"=>"recaptcha_button_resend","data"=>array("data-callback"=>"recaptcha_script_resend")));
         $text[]="<span id=unlock_code_message></span>";
         $results[]="<div>" . implode(" ",$text) . "</div>";
         $results[]=$this->html_oauth_buttons();
@@ -579,6 +607,20 @@ function recaptcha_script(token) {
 	fn_newuser('register');
 }
 
+function recaptcha_script_verify(token) {
+	jQuery("#recaptcha_button_verify").hide();
+	jQuery("#recaptcha_status").html("Working ...");
+	jQuery("#recaptcha_status").show();
+	fn_newuser('remote');
+}
+
+function recaptcha_script_resend(token) {
+	jQuery("#recaptcha_button_resend").hide();
+	jQuery("#recaptcha_status").html("Working ...");
+	jQuery("#recaptcha_status").show();
+	fn_newuser('token');
+}
+
 function fn_newuser(action) {
 	var data=new Object();
 	var obj=jQuery("#scs_form :input");
@@ -616,7 +658,7 @@ function fn_newuser(action) {
                     jQuery("." + field).hide();
                 }
             }
-    	    jQuery("#recaptcha_button").show();
+    	    jQuery("#recaptcha_button, #recaptcha_button_verify, #recaptcha_button_resend").show();
 	        jQuery("#recaptcha_status").hide();
         },
         error: function(xhr, response) {
