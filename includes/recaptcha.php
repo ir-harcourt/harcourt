@@ -52,7 +52,7 @@ class recaptcha_class {
             if ( (strlen($item)) && (!in_array($item,$class)) ) $class[]=$item;
         }
     	$options['class']=$class;
-        $options['id']="recaptcha_button";
+        if (!array_key_exists("id",$options)) $options['id']="recaptcha_button";
         switch (TRUE) {
           case (!array_key_exists("data",$options)):
             $options['data']=array();
@@ -61,9 +61,9 @@ class recaptcha_class {
             $options['data']=array($options['data']);
             break;
         }
-        $options['data']['data-sitekey']=$database->registry->recaptcha->site_key;
-        $options['data']['data-callback']="recaptcha_script";
-        $options['data']['data-action']=$this->action;
+        if (!array_key_exists("data-sitekey",$options['data'])) $options['data']['data-sitekey']=$database->registry->recaptcha->site_key;
+        if (!array_key_exists("data-callback",$options['data'])) $options['data']['data-callback']="recaptcha_script";
+        if (!array_key_exists("data-action",$options['data'])) $options['data']['data-action']=$this->action;
 		return $forms->button($text,$options);
     }
     function score() {

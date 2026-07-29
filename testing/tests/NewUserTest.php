@@ -64,11 +64,12 @@ if (!class_exists('address_class')) {
 
 if (!class_exists('recaptcha_class')) {
     class recaptcha_class {
-        public $score = 0.9;
-        public function __construct($page, $version, $opts = []) {}
+        public static $stubScore = 0.9;
+        public $score;
+        public function __construct($page, $version, $opts = []) { $this->score = self::$stubScore; }
         public function js()                        { return ''; }
         public function button($label, $opts = [])  { return "<button id='recaptcha_button'>{$label}</button>"; }
-        public function score($token)               {}
+        public function score($token)               { $this->score = self::$stubScore; }
     }
 }
 
@@ -166,7 +167,8 @@ class StubDatabase {
         $this->log       = new StubLog();
         $this->blacklist = new StubBlacklist();
         $this->registry  = (object)[
-            'email' => (object)['webmaster' => 'noreply@example.com'],
+            'email'     => (object)['webmaster' => 'noreply@example.com'],
+            'recaptcha' => (object)['score_spam' => 0.7, 'score_ignore' => 0.3],
         ];
     }
 }
@@ -228,6 +230,7 @@ class NewUserTest extends TestCase
         $_SESSION = ['user' => new user_data_class(), 'remote' => 0, 'impersonate' => 0];
         $_POST    = [];
         $_SERVER['HTTP_USER_AGENT'] = 'PHPUnit';
+        recaptcha_class::$stubScore = 0.9;
 
         // Instantiate without running the constructor so each test starts clean.
         $ref       = new ReflectionClass(remote_access_class::class);
@@ -439,6 +442,7 @@ class NewUserTest extends TestCase
 
     public function test_html_remote_includes_microsoft_button(): void
     {
+        $this->sut->recaptcha = new recaptcha_class('newuser', 1, ['local' => TRUE]);
         $html = $this->sut->html_remote(FALSE);
 
         $this->assertStringContainsString('Sign in with Microsoft', $html);
@@ -616,6 +620,7 @@ class NewUserTest extends TestCase
 
     public function test_html_remote_includes_google_button(): void
     {
+        $this->sut->recaptcha = new recaptcha_class('newuser', 1, ['local' => TRUE]);
         $html = $this->sut->html_remote(FALSE);
 
         $this->assertStringContainsString('Sign in with Google', $html);
@@ -978,5 +983,82 @@ class NewUserTest extends TestCase
         ob_end_clean();
 
         $this->assertArrayNotHasKey('oauth_authenticated', $_SESSION);
+    }
+
+    // ── recaptcha score threshold ────────────────────────────────────────
+
+    public function test_json_register_blocks_score_at_spam_threshold(): void
+    {
+        global $database;
+        recaptcha_class::$stubScore = 0.7;
+        $_POST['g-recaptcha-response'] = 'token';
+
+        $this->sut->json_register();
+
+        $this->assertStringContainsString('unable to verify your submission', $this->sut->response->html->profile_register);
+        $this->assertSame('Recaptcha:Blocked', $database->log->lastType);
+    }
+
+    public function test_json_register_blocks_score_below_spam_threshold(): void
+    {
+        global $database;
+        recaptcha_class::$stubScore = 0.3;
+        $_POST['g-recaptcha-response'] = 'token';
+
+        $this->sut->json_register();
+
+        $this->assertSame('Recaptcha:Blocked', $database->log->lastType);
+    }
+
+    public function test_json_register_allows_score_above_spam_threshold(): void
+    {
+        global $database;
+        recaptcha_class::$stubScore = 0.8;
+        $_POST['g-recaptcha-response'] = 'token';
+
+        $this->sut->json_register();
+
+        $this->assertSame('user:signup', $database->log->lastType);
+    }
+
+    public function test_verify_blocks_low_recaptcha_score(): void
+    {
+        global $database;
+        recaptcha_class::$stubScore = 0.5;
+        $_POST['g-recaptcha-response'] = 'token';
+        $validHex = dechex(strtotime('+1 hour'));
+        $_POST['unlock_code']                = $validHex;
+        $database->remote->data->unlock_code = $validHex;
+        $_SESSION['remote']                  = 0;
+
+        $this->sut->json_verify();
+
+        $this->assertStringContainsString('Invalid access token', $this->sut->response->html->unlock_code_error);
+        $this->assertSame('Recaptcha:Blocked', $database->log->lastType);
+        $this->assertObjectNotHasAttribute('scscpq_content', $this->sut->response->html);
+    }
+
+    public function test_token_blocks_low_recaptcha_score(): void
+    {
+        global $database;
+        recaptcha_class::$stubScore = 0.5;
+        $_POST['g-recaptcha-response'] = 'token';
+
+        $this->sut->json_token();
+
+        $this->assertSame('Recaptcha:Blocked', $database->log->lastType);
+        $this->assertSame('Access token has been sent', $this->sut->response->html->unlock_code_message);
+    }
+
+    public function test_token_allows_high_recaptcha_score(): void
+    {
+        global $database;
+        recaptcha_class::$stubScore = 0.9;
+        $_POST['g-recaptcha-response'] = 'token';
+
+        $this->sut->json_token();
+
+        $this->assertNotSame('Recaptcha:Blocked', $database->log->lastType);
+        $this->assertSame('Access token has been sent', $this->sut->response->html->unlock_code_message);
     }
 }
