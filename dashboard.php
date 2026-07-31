@@ -61,6 +61,7 @@ class dashboard_class {
         $menu_group->item("Administrator","Access Code","/remote_code.php");
 	    $menu_group->item("Administrator","Tokens","/remote_token.php");
 	    $menu_group->item("Administrator","Domain Blacklist","/blacklist.php");
+	    $menu_group->item("Administrator","reCAPTCHA Bypass","/captcha_bypass.php");
 
 	    $menu_group->group("Document Manager");
 	    $menu_group->item("Administrator","Languages","/language.php");
