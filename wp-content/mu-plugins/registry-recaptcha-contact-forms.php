@@ -42,6 +42,15 @@ function registry_recaptcha_contact_field_email($form) {
     return '';
 }
 
+function registry_recaptcha_contact_bypassed($email) {
+    global $wpdb;
+    if (!strlen((string) $email)) return false;
+    return (bool) $wpdb->get_var($wpdb->prepare(
+        "SELECT id FROM captcha_bypass WHERE email=%s LIMIT 1",
+        strtolower(trim($email))
+    ));
+}
+
 /**
  * Verifies a reCAPTCHA v3 token against Google using the registry table's own credentials.
  *
@@ -112,12 +121,13 @@ add_filter('gform_validation', function ($validation_result) {
     $score_spam = registry_recaptcha_contact_registry_value('score_spam');
     $token      = rgpost('registry_recaptcha_response');
     $score      = registry_recaptcha_contact_verify($token);
+    $email      = registry_recaptcha_contact_field_email($form);
 
-    if ($score === null || ($score_spam !== null && $score <= (float) $score_spam)) {
+    if (($score === null || ($score_spam !== null && $score <= (float) $score_spam)) && !registry_recaptcha_contact_bypassed($email)) {
         $validation_result['is_valid'] = false;
         $GLOBALS['registry_recaptcha_contact_blocked'] = true;
         registry_recaptcha_contact_log_blocked(
-            registry_recaptcha_contact_field_email($form),
+            $email,
             'reCAPTCHA score ' . ($score === null ? 'unavailable' : $score) . ' at or below spam threshold ' . $score_spam . ' (' . $form['title'] . ')'
         );
     }
