@@ -212,6 +212,8 @@ class log_constant_class {
         $this->type['BOT']=array();
         $this->type['Ajax']=array();
         $this->type['Blacklist']=array('Denied','Add','Remove');
+        $this->type['Recaptcha']=array('Blocked');
+        $this->type['CaptchaBypass']=array('Add','Remove');
     }
 }
 /*
