@@ -114,6 +114,7 @@ class remote_access_class {
     function recaptcha_spam($comment_context, $email="") {
         global $database;
         if ($this->recaptcha->score > $database->registry->recaptcha->score_spam) return FALSE;
+        if ($database->captcha_bypass->check($email)) return FALSE;
         $options=array();
         if (strlen($email)) $options['email']=$email;
         $options['comment']="reCAPTCHA score " . $this->recaptcha->score . " at or below spam threshold " . $database->registry->recaptcha->score_spam . " ({$comment_context})";
@@ -171,7 +172,7 @@ class remote_access_class {
         $this->unlock_code=trim($_POST['unlock_code']);
         $error=null;
         switch (TRUE) {
-          case ($this->recaptcha_spam("access token verify")):
+          case ($this->recaptcha_spam("access token verify", $database->profile->data->email)):
           	$_SESSION['remote']++;
           	$error="Invalid access token (" . $_SESSION['remote'] . " of 3)";
           	break;

@@ -66,6 +66,7 @@ require_once "classes/orderln.php";
 require_once "classes/search.php";
 require_once "classes/remote.php";
 require_once "classes/blacklist.php";
+require_once "classes/captcha_bypass.php";
 require_once "classes/user.php";
 require_once "classes/profile.php";
 require_once "classes/search.php";
