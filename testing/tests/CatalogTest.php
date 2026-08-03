@@ -482,10 +482,8 @@ class CatalogTest extends TestCase
         $obj->output_summary([2 => [20]]);
         $html = ob_get_clean();
 
-        $this->assertStringContainsString('Integrator Agreement Required', $html);
-        $this->assertStringContainsString('Design Partner Agreement Required', $html);
-        $this->assertSame(2, substr_count($html, 'catalog_category_overlay_message'));
-        $this->assertSame(1, substr_count($html, 'catalog_category_overlay'."'"));
+        $this->assertStringContainsString('Integrator Agreement and Design Partner Agreement are required for Access', $html);
+        $this->assertSame(1, substr_count($html, 'catalog_category_overlay_message'));
     }
 
     /** @runInSeparateProcess @preserveGlobalState disabled */

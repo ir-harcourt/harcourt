@@ -732,10 +732,11 @@ class catalog_output_class {
                 $agreement_types=array();
                 if (in_array($category_id,(array)$this->blocked_categories_user)) $agreement_types[]="Integrator Agreement";
                 if (in_array($category_id,(array)$this->blocked_categories_company)) $agreement_types[]="Design Partner Agreement";
+                $agreement_message=(sizeof($agreement_types) > 1) ?
+                    implode(" and ",$agreement_types) . " are required for Access." :
+                    $agreement_types[0] . " Required for Access.";
                 $results[]="<div class='catalog_category_overlay'>";
-                foreach ($agreement_types as $agreement_type) {
-                    $results[]="<div class='catalog_category_overlay_message'>{$agreement_type} Required for Access. " . fn_href("Contact Us","/contact") . " for more information.</div>";
-                }
+                $results[]="<div class='catalog_category_overlay_message'>{$agreement_message} " . fn_href("Contact Us","/contact") . " for more information.</div>";
                 $results[]="</div>";
             }
             $results[]="</div>";
