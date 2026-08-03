@@ -462,6 +462,33 @@ class CatalogTest extends TestCase
     }
 
     /** @runInSeparateProcess @preserveGlobalState disabled */
+    public function test_output_summary_shows_both_messages_when_both_mechanisms_block_the_category(): void {
+        global $database;
+        $obj = $this->bareCatalogInstance();
+        $_SESSION['user'] = $this->defaultSessionUser(['company_name' => 'Acme Corp']);
+        $database->temp = new CatalogStubTable();
+        $database->temp->rows = [['category_id' => 2]];
+        $database->temp->companyRows = [['category_id' => 2]];
+
+        $obj->category    = [2 => (object) ['id' => 2, 'name' => 'Software']];
+        $obj->subcategory  = [20 => $this->subcategoryFixture(['id' => 20, 'name' => 'Antivirus', 'category_id' => 2])];
+        $obj->php_self     = '/catalog.php';
+        $obj->request      = ['debug' => 0];
+        $obj->search_code  = '';
+        $obj->category_id  = 0;
+        $obj->new_date     = 0;
+
+        ob_start();
+        $obj->output_summary([2 => [20]]);
+        $html = ob_get_clean();
+
+        $this->assertStringContainsString('Integrator Agreement Required', $html);
+        $this->assertStringContainsString('Design Partner Agreement Required', $html);
+        $this->assertSame(2, substr_count($html, 'catalog_category_overlay_message'));
+        $this->assertSame(1, substr_count($html, 'catalog_category_overlay'."'"));
+    }
+
+    /** @runInSeparateProcess @preserveGlobalState disabled */
     public function test_output_summary_links_unblocked_category(): void {
         global $database;
         $obj = $this->bareCatalogInstance();
