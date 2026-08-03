@@ -656,6 +656,7 @@ class catalog_output_class {
         global $database;
         if (is_array($this->blocked_categories)) return $this->blocked_categories;
         $this->blocked_categories=array();
+        $this->blocked_categories_company=array();
         if ($_SESSION['user']->id && !isset($_SESSION['user']->bot_code)) {
             $query="SELECT category_id FROM user_category WHERE user_id=" . fn_escape($_SESSION['user']->id,FALSE);
             $database->temp->query($query);
@@ -663,6 +664,15 @@ class catalog_output_class {
                 $this->blocked_categories[]=intval($database->temp->fetch['category_id']);
             }
             $database->temp->free_result();
+            if (isset($_SESSION['user']->company_name) && strlen($_SESSION['user']->company_name)) {
+                $query="SELECT category_id FROM company_category_block WHERE company_name=" . fn_escape($_SESSION['user']->company_name);
+                $database->temp->query($query);
+                while ($database->temp->fetch=$database->temp->fetch_array()) {
+                    $this->blocked_categories_company[]=intval($database->temp->fetch['category_id']);
+                }
+                $database->temp->free_result();
+            }
+            $this->blocked_categories=array_values(array_unique(array_merge($this->blocked_categories,$this->blocked_categories_company)));
         }
         return $this->blocked_categories;
     }
@@ -718,8 +728,9 @@ class catalog_output_class {
             $results[]="</ul>";
 			$results[]="</div>";
             if ($blocked) {
+                $agreement_type=in_array($category_id,(array)$this->blocked_categories_company) ? "Design Partner Agreement" : "Integrator Agreement";
                 $results[]="<div class='catalog_category_overlay'>";
-                $results[]="<div class='catalog_category_overlay_message'>Integrator Agreement Required for Access. " . fn_href("Contact Us","/contact") . " for more information.</div>";
+                $results[]="<div class='catalog_category_overlay_message'>{$agreement_type} Required for Access. " . fn_href("Contact Us","/contact") . " for more information.</div>";
                 $results[]="</div>";
             }
             $results[]="</div>";
