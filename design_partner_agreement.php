@@ -21,6 +21,7 @@ if ((isset($_SERVER['HTTP_X_REQUESTED_WITH'])) && ($_SERVER['REQUEST_METHOD'] ==
       case "save":
         if (!strlen($company_name)) {
             $results['message'] = "<span style='color:red;'>Company name is required</span>";
+            $results['status'] = "error";
             break;
         }
         design_partner_agreement_save($company_name);
@@ -28,6 +29,7 @@ if ((isset($_SERVER['HTTP_X_REQUESTED_WITH'])) && ($_SERVER['REQUEST_METHOD'] ==
         $options['comment'] = "Design Partner Agreement categories updated: " . $company_name;
         $database->log->update("DesignPartnerAgreement:Update", $options);
         $results['message'] = htmlspecialchars($company_name) . " categories updated";
+        $results['status'] = "success";
         $results['content'] = design_partner_agreement_output($company_name);
         break;
     }
@@ -37,7 +39,29 @@ $forms->title("Design Partner Agreement");
 $menu->head();
 print $forms->message();
 ?>
+<style>
+#dpa_message.dpa-message-success { background-color:#d4edda; color:#155724; padding:8px 10px; border-radius:4px; }
+#dpa_message.dpa-message-error { background-color:#f8d7da; color:#721c24; padding:8px 10px; border-radius:4px; }
+ul.ui-autocomplete { max-height:220px !important; overflow-y:auto !important; overflow-x:hidden !important; }
+</style>
 <script>
+function design_partner_agreement_flash_message(status) {
+    var el = jQuery("#dpa_message");
+    el.stop(true, true).show();
+    el.removeClass("dpa-message-success dpa-message-error");
+    jQuery(document).off(".dpaMessage");
+    if (status != "success" && status != "error") return;
+    el.addClass(status == "success" ? "dpa-message-success" : "dpa-message-error");
+    var shown_at = Date.now();
+    var min_visible_ms = 1200;
+    jQuery(document).on("mousemove.dpaMessage click.dpaMessage keydown.dpaMessage scroll.dpaMessage", function() {
+        if (Date.now() - shown_at < min_visible_ms) return;
+        jQuery(document).off(".dpaMessage");
+        el.fadeOut(600, function() {
+            el.html("&nbsp;").removeClass("dpa-message-success dpa-message-error").show();
+        });
+    });
+}
 function design_partner_agreement_load() {
     var company = jQuery("#dpa_company_name").val().trim();
     jQuery.ajax({
@@ -65,6 +89,7 @@ function design_partner_agreement_save() {
         data: data,
         success: function(response) {
             jQuery("#dpa_message").html(response['message']);
+            design_partner_agreement_flash_message(response['status']);
             jQuery("#dpa_content").html(response['content']);
             scscpq_ipc("scscpq_wp_iframe", "resize", jQuery("#scs_content").height());
         },
@@ -85,6 +110,10 @@ jQuery(function() {
         html: true,
         open: function(event, ui) {
             jQuery('.ui-autocomplete').css('z-index', 1000);
+            scscpq_ipc("scscpq_wp_iframe", "resize", document.body.scrollHeight);
+        },
+        close: function(event, ui) {
+            scscpq_ipc("scscpq_wp_iframe", "resize", jQuery("#scs_content").height());
         }
     });
 });
