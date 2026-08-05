@@ -99,6 +99,7 @@ function design_partner_agreement_save() {
     });
 }
 jQuery(function() {
+    scscpq_ipc("scscpq_wp_iframe", "resize", jQuery("#scs_content").height());
     jQuery('#dpa_company_name').autocomplete({
         source: '/scs_ajax.php?table=user&source=company_name',
         minLength: 2,
@@ -110,10 +111,8 @@ jQuery(function() {
         html: true,
         open: function(event, ui) {
             jQuery('.ui-autocomplete').css('z-index', 1000);
-            scscpq_ipc("scscpq_wp_iframe", "resize", document.body.scrollHeight);
-        },
-        close: function(event, ui) {
-            scscpq_ipc("scscpq_wp_iframe", "resize", jQuery("#scs_content").height());
+            var input_bottom = jQuery('#dpa_company_name').offset().top + jQuery('#dpa_company_name').outerHeight();
+            scscpq_ipc("scscpq_wp_iframe", "resize", input_bottom + 240);
         }
     });
 });
