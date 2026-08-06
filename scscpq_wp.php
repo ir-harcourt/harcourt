@@ -317,6 +317,9 @@ EOT;
           	$page="/campaign.php";
             $url_query=$this->url_query;
           	break;
+          case ($this->page == "product_certificate"):
+          	$page="/product_certificate.php";
+          	break;
           case ($this->page == "customer_portal"):
           	$this->link=TRUE;
           	$page="/customer_portal.php";

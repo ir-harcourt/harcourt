@@ -121,6 +121,7 @@ function product_certificate_search_output($sku) {
 
 function product_certificate_pdf_html($data) {
     $logo = $_SERVER['DOCUMENT_ROOT'] . "/scs_images/logo.jpg";
+    $signature = $_SERVER['DOCUMENT_ROOT'] . "/scs_images/certificate_signature.png";
     $rows = array();
     $rows[] = "<html><head><style>";
     $rows[] = "body { font-family: sans-serif; color:#111; font-size:12px; }";
@@ -152,8 +153,9 @@ function product_certificate_pdf_html($data) {
     $rows[] = "<p>A Non-Destructive Test was gradually loaded to 20,000 Lbs, or 200% and was held for 3 Seconds. Then the Hoist Ring(s) were examined showing NO damage to the product.</p>";
     $rows[] = "<hr>";
     $rows[] = "<p>Harcourt Industrial Inc certifies that the following parts were 100% load tested and passed all safety checks.</p>";
-    $rows[] = "<table><tr><td width='60%'>&nbsp;</td><td width='40%' style='text-align:center;'>";
-    $rows[] = "<div style='border-top:1px solid #000; margin-top:50px; padding-top:4px;'>Signature: Quality Assurance</div>";
+    $rows[] = "<table><tr><td width='60%'>&nbsp;</td><td width='40%' style='text-align:right;'>";
+    $rows[] = "<img src='" . $signature . "' width='87' height='45'><br>";
+    $rows[] = "<div style='width:87px; margin-left:auto; border-top:1px solid #000; padding-top:4px; text-align:right;'>Rob Beardmore<br>President</div>";
     $rows[] = "</td></tr></table>";
     $rows[] = "</body></html>";
     return implode("", $rows);
