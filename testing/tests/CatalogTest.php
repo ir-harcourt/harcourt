@@ -82,16 +82,26 @@ if (!class_exists('configure_class')) {
 if (!class_exists('CatalogStubTable')) {
     class CatalogStubTable {
         public $rows = [];
+        // Rows served for queries against company_category_block, kept separate
+        // from $rows (user_category) since blocked_categories() issues both
+        // queries against the same $database->temp stub instance.
+        public $companyRows = [];
         public $fetch;
         public $data;
         public $meta;
         public $constant;
         private $cursor = 0;
+        private $activeRows = [];
 
         function __construct() { $this->meta = (object) ['rows' => 0, 'error' => 0, 'found_rows' => 0]; }
-        function query($sql) { $this->cursor = 0; $this->meta->rows = count($this->rows); }
+        function query($sql) {
+            $this->cursor = 0;
+            $sql_text = is_array($sql) ? implode(" ", $sql) : $sql;
+            $this->activeRows = (stripos($sql_text, 'company_category_block') !== false) ? $this->companyRows : $this->rows;
+            $this->meta->rows = count($this->activeRows);
+        }
         function fetch_array() {
-            if ($this->cursor < count($this->rows)) return $this->rows[$this->cursor++];
+            if ($this->cursor < count($this->activeRows)) return $this->activeRows[$this->cursor++];
             return false;
         }
         function fetch($f = false) { $this->data = (object) $this->fetch; }
@@ -346,6 +356,54 @@ class CatalogTest extends TestCase
         $this->assertSame([], $obj->blocked_categories());
     }
 
+    /** @runInSeparateProcess @preserveGlobalState disabled */
+    public function test_blocked_categories_merges_company_level_blocks(): void {
+        global $database;
+        $obj = $this->bareCatalogInstance();
+        $_SESSION['user'] = $this->defaultSessionUser(['company_name' => 'Acme Corp']);
+        $database->temp = new CatalogStubTable();
+        $database->temp->rows = [['category_id' => 3]];
+        $database->temp->companyRows = [['category_id' => 7]];
+
+        $this->assertSame([3, 7], $obj->blocked_categories());
+    }
+
+    /** @runInSeparateProcess @preserveGlobalState disabled */
+    public function test_blocked_categories_dedupes_when_both_mechanisms_block_same_category(): void {
+        global $database;
+        $obj = $this->bareCatalogInstance();
+        $_SESSION['user'] = $this->defaultSessionUser(['company_name' => 'Acme Corp']);
+        $database->temp = new CatalogStubTable();
+        $database->temp->rows = [['category_id' => 3]];
+        $database->temp->companyRows = [['category_id' => 3]];
+
+        $this->assertSame([3], $obj->blocked_categories());
+    }
+
+    /** @runInSeparateProcess @preserveGlobalState disabled */
+    public function test_blocked_categories_ignores_company_block_when_session_has_no_company_name(): void {
+        global $database;
+        $obj = $this->bareCatalogInstance();
+        $_SESSION['user'] = $this->defaultSessionUser(); // no company_name set
+        $database->temp = new CatalogStubTable();
+        $database->temp->rows = [['category_id' => 3]];
+        $database->temp->companyRows = [['category_id' => 7]];
+
+        $this->assertSame([3], $obj->blocked_categories());
+    }
+
+    /** @runInSeparateProcess @preserveGlobalState disabled */
+    public function test_blocked_categories_ignores_company_block_for_bot_sessions(): void {
+        global $database;
+        $obj = $this->bareCatalogInstance();
+        $_SESSION['user'] = $this->defaultSessionUser(['company_name' => 'Acme Corp']);
+        $_SESSION['user']->bot_code = 'GOOGLEBOT';
+        $database->temp = new CatalogStubTable();
+        $database->temp->companyRows = [['category_id' => 7]];
+
+        $this->assertSame([], $obj->blocked_categories());
+    }
+
     // ── output_summary(): category overlay + link suppression ──────────
 
     /** @runInSeparateProcess @preserveGlobalState disabled */
@@ -377,6 +435,55 @@ class CatalogTest extends TestCase
         // as inaccessible even if the overlay itself is removed via devtools.
         $this->assertStringContainsString("<span class='catalog_blocked_link'>", $html);
         $this->assertStringContainsString('Antivirus', $html);
+    }
+
+    /** @runInSeparateProcess @preserveGlobalState disabled */
+    public function test_output_summary_shows_design_partner_agreement_message_for_company_blocked_category(): void {
+        global $database;
+        $obj = $this->bareCatalogInstance();
+        $_SESSION['user'] = $this->defaultSessionUser(['company_name' => 'Acme Corp']);
+        $database->temp = new CatalogStubTable();
+        $database->temp->companyRows = [['category_id' => 2]];
+
+        $obj->category    = [2 => (object) ['id' => 2, 'name' => 'Software']];
+        $obj->subcategory  = [20 => $this->subcategoryFixture(['id' => 20, 'name' => 'Antivirus', 'category_id' => 2])];
+        $obj->php_self     = '/catalog.php';
+        $obj->request      = ['debug' => 0];
+        $obj->search_code  = '';
+        $obj->category_id  = 0;
+        $obj->new_date     = 0;
+
+        ob_start();
+        $obj->output_summary([2 => [20]]);
+        $html = ob_get_clean();
+
+        $this->assertStringContainsString('Design Partner Agreement Required', $html);
+        $this->assertStringNotContainsString('Integrator Agreement Required', $html);
+    }
+
+    /** @runInSeparateProcess @preserveGlobalState disabled */
+    public function test_output_summary_shows_both_messages_when_both_mechanisms_block_the_category(): void {
+        global $database;
+        $obj = $this->bareCatalogInstance();
+        $_SESSION['user'] = $this->defaultSessionUser(['company_name' => 'Acme Corp']);
+        $database->temp = new CatalogStubTable();
+        $database->temp->rows = [['category_id' => 2]];
+        $database->temp->companyRows = [['category_id' => 2]];
+
+        $obj->category    = [2 => (object) ['id' => 2, 'name' => 'Software']];
+        $obj->subcategory  = [20 => $this->subcategoryFixture(['id' => 20, 'name' => 'Antivirus', 'category_id' => 2])];
+        $obj->php_self     = '/catalog.php';
+        $obj->request      = ['debug' => 0];
+        $obj->search_code  = '';
+        $obj->category_id  = 0;
+        $obj->new_date     = 0;
+
+        ob_start();
+        $obj->output_summary([2 => [20]]);
+        $html = ob_get_clean();
+
+        $this->assertStringContainsString('Integrator Agreement and Design Partner Agreement are required for Access', $html);
+        $this->assertSame(1, substr_count($html, 'catalog_category_overlay_message'));
     }
 
     /** @runInSeparateProcess @preserveGlobalState disabled */
