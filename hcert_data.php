@@ -52,6 +52,11 @@ switch (TRUE) {
 }
 $menu->head();
 print $forms->message();
+print $forms->open(array("name"=>"template_download_form"));
+print "<input type='hidden' name='function' value='template' id='template_function'>\n";
+print "<input type='hidden' name='file_type' value='.csv' id='template_file_type'>\n";
+print $forms->close();
+print "<p><a href='javascript:void(0);' onclick=\"document.template_download_form.submit();\">Download CSV Template</a></p>\n";
 ?>
 <script type='text/javascript'>
 jQuery(document).ready(function() {
