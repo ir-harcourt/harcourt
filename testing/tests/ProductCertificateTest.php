@@ -152,7 +152,7 @@ class ProductCertificateTest extends TestCase
      * are defined unconditionally at the bottom of the file, so they're
      * available afterward regardless of which shell content was rendered.
      */
-    private function requirePage(ProductCertificateStubTable $table, string $sessionRole = 'Customer'): string {
+    private function requirePage(ProductCertificateStubTable $table, string $sessionRole = 'Customer', int $sessionId = 1, string $sessionStatus = 'Active'): string {
         global $database, $forms, $menu;
 
         $database = new stdClass();
@@ -167,7 +167,7 @@ class ProductCertificateTest extends TestCase
         $_SERVER['REQUEST_METHOD'] = 'GET';
         $_GET = [];
         $_POST = [];
-        $_SESSION['user'] = (object) ['type' => $sessionRole];
+        $_SESSION['user'] = (object) ['type' => $sessionRole, 'id' => $sessionId, 'status' => $sessionStatus];
 
         ob_start();
         require dirname(__DIR__, 2) . '/product_certificate.php';

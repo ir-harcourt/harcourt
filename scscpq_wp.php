@@ -322,7 +322,7 @@ EOT;
           	$page="/campaign.php";
             $url_query=$this->url_query;
           	break;
-          case ($this->page == "product_certificate"):
+          case ( ($this->page == "product_certificate") && ($_SESSION['user']->id) && ($_SESSION['user']->status == "Active") ):
           	$page="/product_certificate.php";
           	break;
           case ($this->page == "customer_portal"):

@@ -1,6 +1,7 @@
 <?php
 require_once "scs_header.php";
 $database->user->access("Customer");
+if ( (!$_SESSION['user']->id) || ($_SESSION['user']->status != "Active") ) exit;
 
 if (isset($_GET['download'])) {
     $database->product_certificate->read(intval($_GET['download']));
