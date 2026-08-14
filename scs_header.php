@@ -61,6 +61,7 @@ require_once "classes/language.php";
 require_once "classes/log.php";
 require_once "classes/subcategory.php";
 require_once "classes/pricing.php";
+require_once "classes/product_certificate.php";
 require_once "classes/orderhd.php";
 require_once "classes/orderln.php";
 require_once "classes/search.php";
