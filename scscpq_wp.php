@@ -106,6 +106,7 @@ class scscpq_wp_class {
         $this->response->scscpq_cart=$this->cart();
         $this->response->scscpq_portal=$this->portal();
         $this->response->scscpq_dashboard=$this->dashboard();
+        $this->response->scscpq_product_certificate=$this->product_certificate();
         $this->response->scscpq_products=$this->response->scscpq_catalog;
         $database->language->read($_REQUEST['language'], "local_name");
         if ($database->language->meta->rows) $_SESSION['user']->language_code=$database->language->data->code;
@@ -133,6 +134,10 @@ class scscpq_wp_class {
         global $database, $forms, $menu;
         $this->trace[]=__FUNCTION__;
 		return ( ( ($database->user->access("Executive",FALSE)) && ($_SESSION['user']->status == "Active") ) ? 1 : 0);
+    }
+    function product_certificate() {
+        $this->trace[]=__FUNCTION__;
+		return ( ( ($_SESSION['user']->id) && ($_SESSION['user']->status == "Active") ) ? 1 : 0);
     }
     function newuser() {
         global $database, $menu, $forms;
@@ -316,6 +321,9 @@ EOT;
           case ($this->page == "campaign"):
           	$page="/campaign.php";
             $url_query=$this->url_query;
+          	break;
+          case ( ($this->page == "product_certificate") && ($_SESSION['user']->id) && ($_SESSION['user']->status == "Active") ):
+          	$page="/product_certificate.php";
           	break;
           case ($this->page == "customer_portal"):
           	$this->link=TRUE;
