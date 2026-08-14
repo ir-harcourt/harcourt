@@ -80,7 +80,7 @@ print "<input type='text' id='pc_sku' placeholder='Enter product number (e.g., H
 print "<button type='button' onclick='pc_search();'>&#128269; Search</button>";
 print "</div>";
 if (role_access($_SESSION['user']->type, "Administrator")) {
-    print "<div class='pc-dashboard-link'><a href='/hcert_data.php' target='_blank'>&#128737; Certificate Dashboard</a></div>";
+    print "<div class='pc-dashboard-link'><a href='/product-certificates/' target='_blank'>&#128737; Certificate Dashboard</a></div>";
 }
 print "<div id='pc_results'><p class='pc-empty'>Enter a product number to view its certificate.</p></div>";
 print "</div>";
