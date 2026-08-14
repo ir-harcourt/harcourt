@@ -91,7 +91,7 @@ class dashboard_class {
 	    $menu_group->item("Administrator","Inventory w/o Prices","/inventory_no_price.php");
 	    $menu_group->item("Administrator","ERP Pricing Import","/inventory_price.php");
 	    $menu_group->item("Administrator","Smart SKU Pricing Utility","/pricing_utility.php");
-	    $menu_group->item("Administrator","HCERT Data","/hcert_data.php");
+	    $menu_group->item("Administrator","Product Certificates","/hcert_data.php");
 
         $menu_group->group("Catalog");
 	    $menu_group->item("Administrator","Search Utility","/search_utility.php");
