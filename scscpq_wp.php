@@ -325,6 +325,9 @@ EOT;
           case ( ($this->page == "product_certificate") && ($_SESSION['user']->id) && ($_SESSION['user']->status == "Active") ):
           	$page="/product_certificate.php";
           	break;
+          case ( ($this->page == "hcert_data") && ($database->user->access("Administrator",FALSE)) ):
+          	$page="/hcert_data.php";
+          	break;
           case ($this->page == "customer_portal"):
           	$this->link=TRUE;
           	$page="/customer_portal.php";
