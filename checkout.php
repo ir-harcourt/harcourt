@@ -75,6 +75,10 @@ class checkout_class {
             $mail=new scsmail_class("checkout",$this->data);
             $mail->html($forms->constant->html);
 	        $forms->message[]=$mail->send();
+            $mail_customer=new scsmail_class("checkout",$this->data);
+            $mail_customer->html($forms->constant->html);
+            $mail_customer->recipient($this->data->email,$this->data->name);
+	        $forms->message[]=$mail_customer->send();
 			unset($_SESSION['checkout']);
 			unset($_SESSION['cart']);
             $menu->cart=array();
