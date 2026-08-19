@@ -90,12 +90,14 @@ if (!class_exists('scsmail_class')) {
         public static $instances = [];
         public $form;
         public $data;
+        public $options;
         public $html;
         public $recipients = [];
         public $sent = FALSE;
-        public function __construct($form, $data = []) {
+        public function __construct($form, $data = [], $options = []) {
             $this->form = $form;
             $this->data = $data;
+            $this->options = $options;
             self::$instances[] = $this;
         }
         public function html($html) {
@@ -309,6 +311,15 @@ class CheckoutTest extends TestCase
         [$salesMail, $customerMail] = scsmail_class::$instances;
         $this->assertSame($salesMail->html, $customerMail->html);
         $this->assertNotEmpty($salesMail->html);
+    }
+
+    public function test_customer_email_subject_is_overridden_to_order_confirmation(): void
+    {
+        $this->runCheckout();
+
+        [$salesMail, $customerMail] = scsmail_class::$instances;
+        $this->assertSame('Order Confirmation', $customerMail->options['subject']);
+        $this->assertArrayNotHasKey('subject', $salesMail->options, 'Sales copy should keep the mailform default subject.');
     }
 
     public function test_both_emails_are_sent(): void
