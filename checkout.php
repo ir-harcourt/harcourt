@@ -76,7 +76,9 @@ class checkout_class {
             $mail->html($forms->constant->html);
 	        $forms->message[]=$mail->send();
             $mail_customer=new scsmail_class("checkout",$this->data,array("subject"=>"Order Confirmation"));
-            $mail_customer->html($forms->constant->html);
+            $customer_html="<p>This confirms that your web order has been successfully sent to our team. A formal order acknowledgement will follow from sales@harcourt.co as soon as your order has been processed in our system.</p>" . $forms->constant->html;
+            if (strlen($database->registry->local->cc_email)) $customer_html .= "<p>No orders will ship without a credit card on file.</p>";
+            $mail_customer->html($customer_html);
             $mail_customer->recipient($this->data->email,$this->data->name);
 	        $forms->message[]=$mail_customer->send();
 			unset($_SESSION['checkout']);
