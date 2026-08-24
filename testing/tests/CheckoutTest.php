@@ -371,6 +371,19 @@ class CheckoutTest extends TestCase
         $this->assertNotSame('123 Main St', $database->orderhd->data->billing_address);
     }
 
+    public function test_billing_country_defaults_to_shipping_country_when_checkbox_unchecked(): void
+    {
+        // Regression test: the billing country select must not be blank on a fresh
+        // checkout session, otherwise the Province/State field never appears (it's
+        // only shown by fn_country_address() once a country is set).
+        global $database;
+        // billing_same_as_shipping intentionally left unset.
+
+        $this->runCheckout();
+
+        $this->assertSame('US', $database->orderhd->data->billing_country_code);
+    }
+
     public function test_no_emails_sent_when_validation_fails(): void
     {
         $_POST['carrier_name'] = '';
