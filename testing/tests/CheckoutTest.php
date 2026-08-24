@@ -304,13 +304,27 @@ class CheckoutTest extends TestCase
         $this->assertSame('to', $customerMail->recipients[0]['field'], 'Customer must be an explicit "to" on their own email, not a CC on the sales email.');
     }
 
-    public function test_both_emails_carry_identical_html_content(): void
+    public function test_customer_email_wraps_the_shared_order_content_with_a_confirmation_intro(): void
     {
         $this->runCheckout();
 
         [$salesMail, $customerMail] = scsmail_class::$instances;
-        $this->assertSame($salesMail->html, $customerMail->html);
         $this->assertNotEmpty($salesMail->html);
+        $this->assertStringEndsWith($salesMail->html, $customerMail->html, 'Customer email should carry the same order content as the sales copy, plus a prepended intro.');
+        $this->assertStringContainsString('sales@harcourt.co', $customerMail->html);
+        $this->assertStringNotContainsString('sales@harcourt.co', $salesMail->html, 'Sales copy should not carry the customer-facing confirmation intro.');
+    }
+
+    public function test_no_ship_without_credit_card_notice_is_customer_only(): void
+    {
+        global $database;
+        $database->registry->local->cc_email = 'Please call our offices to provide payment information.';
+
+        $this->runCheckout();
+
+        [$salesMail, $customerMail] = scsmail_class::$instances;
+        $this->assertStringContainsString('No orders will ship without a credit card', $customerMail->html);
+        $this->assertStringNotContainsString('No orders will ship without a credit card', $salesMail->html, 'Sales copy should not carry the customer-only shipping notice.');
     }
 
     public function test_customer_email_subject_is_overridden_to_order_confirmation(): void
