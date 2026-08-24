@@ -345,6 +345,32 @@ class CheckoutTest extends TestCase
         $this->assertTrue($customerMail->sent);
     }
 
+    public function test_billing_same_as_shipping_copies_the_shipping_address(): void
+    {
+        global $database;
+        $_POST['billing_same_as_shipping'] = '1';
+
+        $this->runCheckout();
+
+        $this->assertSame('Acme Co', $database->orderhd->data->billing_company_name);
+        $this->assertSame('123 Main St', $database->orderhd->data->billing_address);
+        $this->assertSame('Springfield', $database->orderhd->data->billing_city);
+        $this->assertSame('IL', $database->orderhd->data->billing_state);
+        $this->assertSame('62701', $database->orderhd->data->billing_zip);
+        $this->assertSame('US', $database->orderhd->data->billing_country_code);
+    }
+
+    public function test_billing_not_same_as_shipping_does_not_copy_the_shipping_address(): void
+    {
+        global $database;
+        // billing_same_as_shipping intentionally left unset.
+
+        $this->runCheckout();
+
+        $this->assertNotSame('Acme Co', $database->orderhd->data->billing_company_name);
+        $this->assertNotSame('123 Main St', $database->orderhd->data->billing_address);
+    }
+
     public function test_no_emails_sent_when_validation_fails(): void
     {
         $_POST['carrier_name'] = '';
