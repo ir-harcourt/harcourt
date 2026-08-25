@@ -352,7 +352,6 @@ class CheckoutTest extends TestCase
 
         $this->runCheckout();
 
-        $this->assertSame('Acme Co', $database->orderhd->data->billing_company_name);
         $this->assertSame('123 Main St', $database->orderhd->data->billing_address);
         $this->assertSame('Springfield', $database->orderhd->data->billing_city);
         $this->assertSame('IL', $database->orderhd->data->billing_state);
@@ -367,7 +366,6 @@ class CheckoutTest extends TestCase
 
         $this->runCheckout();
 
-        $this->assertNotSame('Acme Co', $database->orderhd->data->billing_company_name);
         $this->assertNotSame('123 Main St', $database->orderhd->data->billing_address);
     }
 

@@ -55,7 +55,6 @@ class checkout_class {
                 break;
             }
             if (isset($_POST['billing_same_as_shipping'])) {
-	        	$this->data->billing_company_name=$this->data->company_name;
 	        	$this->data->billing_address=$this->data->address;
 	        	$this->data->billing_city=$this->data->city;
 	        	$this->data->billing_state=$this->data->state;
@@ -63,7 +62,6 @@ class checkout_class {
 	        	$this->data->billing_country_code=$this->data->country_code;
 	          } else {
 	        	$billing_data=new stdClass();
-	        	$billing_data->company_name=$this->data->billing_company_name;
 	        	$billing_data->address=$this->data->billing_address;
 	        	$billing_data->city=$this->data->billing_city;
 	        	$billing_data->state=$this->data->billing_state;
@@ -71,7 +69,6 @@ class checkout_class {
 	        	$billing_data->country_code=$this->data->billing_country_code;
 	        	$billing_address=new address_class("orderhd_billing",$billing_data);
 	            $billing_address->verify();
-	        	$this->data->billing_company_name=$billing_data->company_name;
 	        	$this->data->billing_address=$billing_data->address;
 	        	$this->data->billing_city=$billing_data->city;
 	        	$this->data->billing_state=$billing_data->state;
@@ -120,7 +117,6 @@ class checkout_class {
 	        document.scs_form.submit();
 	    }
 	    function fn_billing_same_as_shipping(checked) {
-	        jQuery('#orderhd_billing_company_name').val(checked ? jQuery('#orderhd_company_name').val() : '');
 	        jQuery('#orderhd_billing_address').val(checked ? jQuery('#orderhd_address').val() : '');
 	        jQuery('#orderhd_billing_city').val(checked ? jQuery('#orderhd_city').val() : '');
 	        jQuery('#orderhd_billing_state_us').val(checked ? jQuery('#orderhd_state_us').val() : '');

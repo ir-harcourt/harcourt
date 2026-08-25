@@ -48,7 +48,6 @@ class orderhd_class extends database_class {
 	    $this->data->carrier_account=$this->fetch['carrier_account'];
 	    $this->data->currency_code=$this->fetch['currency_code'];
 	    $this->data->cc=$this->fetch['cc'];
-	    $this->data->billing_company_name=$this->fetch['billing_company_name'];
 	    $this->data->billing_address=$this->fetch['billing_address'];
 	    $this->data->billing_city=$this->fetch['billing_city'];
 	    $this->data->billing_state=$this->fetch['billing_state'];
@@ -94,7 +93,6 @@ class orderhd_class extends database_class {
 	    $fields[]="carrier_account=" . fn_escape($this->data->carrier_account);
 	    $fields[]="currency_code=" . fn_escape($this->data->currency_code);
 	    $fields[]="cc=" . fn_escape($this->data->cc,"null");
-	    $fields[]="billing_company_name=" . fn_escape($this->data->billing_company_name);
 	    $fields[]="billing_address=" . fn_escape($this->data->billing_address);
 	    $fields[]="billing_city=" . fn_escape($this->data->billing_city);
 	    $fields[]="billing_state=" . fn_escape($this->data->billing_state);
@@ -166,13 +164,12 @@ class orderhd_class extends database_class {
             $results[]="<tr><td colspan=2>" . $forms->checkbox("billing_same_as_shipping",1,$billing_same,array("onclick"=>"fn_billing_same_as_shipping(this.checked);")) . " Same as shipping address</td></tr>";
         }
         $billing_data=new stdClass();
-        $billing_data->company_name=$this->data->billing_company_name;
         $billing_data->address=$this->data->billing_address;
         $billing_data->city=$this->data->billing_city;
         $billing_data->state=$this->data->billing_state;
         $billing_data->zip=$this->data->billing_zip;
         $billing_data->country_code=$this->data->billing_country_code;
-        $address_options['omit']=array("name","title","email","phone","fax");
+        $address_options['omit']=array("name","title","email","phone","fax","company_name");
         $billing_address=new address_class("orderhd_billing",$billing_data,$address_options);
         switch (TRUE) {
           case ($options['entry']):
@@ -296,7 +293,6 @@ class orderhd_data_class {
     var $carrier_account;
     var $currency_code="USD";
     var $cc;
-    var $billing_company_name;
     var $billing_address;
     var $billing_city;
     var $billing_state;
@@ -339,7 +335,6 @@ CREATE TABLE `orderhd` (
   `carrier_account` varchar(60) DEFAULT NULL,
   `currency_code` char(3) DEFAULT 'USD',
   `cc` varchar(4) DEFAULT NULL,
-  `billing_company_name` varchar(45) DEFAULT '',
   `billing_address` mediumtext,
   `billing_city` varchar(40) DEFAULT '',
   `billing_state` char(40) DEFAULT '',
