@@ -32,7 +32,6 @@ class checkout_class {
 	        $this->data->state=$this->ecommerce->state;
 	        $this->data->zip=$this->ecommerce->zip;
 	        $this->data->country_code=$this->ecommerce->country_code;
-	        $this->data->billing_country_code=$this->ecommerce->country_code;
 	        $this->data->carrier_name=$this->ecommerce->carrier_name;
 	        $this->data->carrier_account=$this->ecommerce->carrier_account;
 	        $this->data->currency_code=$_SESSION['user']->currency_code;
@@ -123,7 +122,7 @@ class checkout_class {
 	        jQuery('#orderhd_billing_state_ca').val(checked ? jQuery('#orderhd_state_ca').val() : '');
 	        jQuery('#orderhd_billing_state_other').val(checked ? jQuery('#orderhd_state_other').val() : '');
 	        jQuery('#orderhd_billing_zip').val(checked ? jQuery('#orderhd_zip').val() : '');
-	        jQuery('#orderhd_billing_country_code').val(checked ? jQuery('#orderhd_country_code').val() : <?php echo json_encode($this->data->billing_country_code); ?>);
+	        jQuery('#orderhd_billing_country_code').val(checked ? jQuery('#orderhd_country_code').val() : '');
 	        fn_country_address('orderhd_billing');
 	    }
 	    </script>
