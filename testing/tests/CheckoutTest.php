@@ -345,6 +345,44 @@ class CheckoutTest extends TestCase
         $this->assertTrue($customerMail->sent);
     }
 
+    public function test_billing_same_as_shipping_copies_the_shipping_address(): void
+    {
+        global $database;
+        $_POST['billing_same_as_shipping'] = '1';
+
+        $this->runCheckout();
+
+        $this->assertSame('123 Main St', $database->orderhd->data->billing_address);
+        $this->assertSame('Springfield', $database->orderhd->data->billing_city);
+        $this->assertSame('IL', $database->orderhd->data->billing_state);
+        $this->assertSame('62701', $database->orderhd->data->billing_zip);
+        $this->assertSame('US', $database->orderhd->data->billing_country_code);
+    }
+
+    public function test_billing_not_same_as_shipping_does_not_copy_the_shipping_address(): void
+    {
+        global $database;
+        // billing_same_as_shipping intentionally left unset.
+
+        $this->runCheckout();
+
+        $this->assertNotSame('123 Main St', $database->orderhd->data->billing_address);
+    }
+
+    public function test_billing_country_defaults_to_blank_when_checkbox_unchecked(): void
+    {
+        // The billing country starts blank on a fresh checkout session so the user
+        // isn't defaulted into the shipping country. fn_country_address() shows the
+        // generic Province/State field for a blank country, so the field is never
+        // hidden even though no country is selected yet.
+        global $database;
+        // billing_same_as_shipping intentionally left unset.
+
+        $this->runCheckout();
+
+        $this->assertEmpty($database->orderhd->data->billing_country_code);
+    }
+
     public function test_no_emails_sent_when_validation_fails(): void
     {
         $_POST['carrier_name'] = '';
