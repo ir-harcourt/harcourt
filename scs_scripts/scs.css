@@ -265,6 +265,16 @@ div.portalcategory img { vertical-align: middle; }
 	to { transform: rotate(360deg); }
 }
 
+.products_summary {
+	max-width: 1800px;
+	margin: 0 auto;
+	padding: 0 40px;
+	box-sizing: border-box;
+}
+@media only screen and ( max-width : 576px ) {
+	.products_summary { padding: 0 15px; }
+}
+
 .catalog_subcategory_list {
 	overflow:auto;
     padding-bottom: 10px;
