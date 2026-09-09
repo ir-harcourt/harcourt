@@ -663,6 +663,7 @@ class catalog_output_class {
         if ($this->new_date) $url_query['new_date']=1;
         $unit_type_options=array(""=>"All","metric"=>"Metric","imperial"=>"Imperial");
         $results=array();
+        $results[]=$this->output_unit_filter_script();
         $results[]="<div class='catalog_unit_filter'>";
         $results[]="<span class='catalog_unit_filter_label nobr'>Show:</span>";
         foreach ($unit_type_options as $value => $label) {
@@ -672,6 +673,51 @@ class catalog_output_class {
             $results[]=fn_href($label,$this->php_self,$pill_query,array("class"=>$class));
         }
         $results[]="</div>";
+        return implode("\n",$results);
+    }
+    function output_unit_filter_script() {
+        // Delegated on document (not the swapped nodes) so it keeps working after
+        // an AJAX swap replaces .products_summary, and only needs to run once —
+        // browsers don't execute <script> tags inserted via replaceWith/innerHTML.
+        // The spinner is appended to <body> (not inside .products_summary) so it
+        // isn't dimmed along with the rest of the content while opacity is reduced.
+        $results=array();
+        $results[]="<script type='text/javascript'>";
+        $results[]="if (!window.fn_catalog_unit_filter_bound) {";
+        $results[]="  window.fn_catalog_unit_filter_bound=true;";
+        $results[]="  document.addEventListener('click', function(e) {";
+        $results[]="    var pill=e.target.closest && e.target.closest('.catalog_unit_filter_pill');";
+        $results[]="    if (!pill) return;";
+        $results[]="    e.preventDefault();";
+        $results[]="    fn_catalog_unit_filter_load(pill.href, true);";
+        $results[]="  });";
+        $results[]="  window.addEventListener('popstate', function() {";
+        $results[]="    fn_catalog_unit_filter_load(location.href, false);";
+        $results[]="  });";
+        $results[]="}";
+        $results[]="function fn_catalog_unit_filter_load(url, push_state) {";
+        $results[]="  var old_summary=document.querySelector('.products_summary');";
+        $results[]="  if (old_summary) old_summary.classList.add('catalog_loading');";
+        $results[]="  var spinner=document.createElement('div');";
+        $results[]="  spinner.className='catalog_unit_filter_spinner';";
+        $results[]="  document.body.appendChild(spinner);";
+        $results[]="  fetch(url, {credentials: 'same-origin'}).then(function(response) {";
+        $results[]="    if (!response.ok) throw new Error('http_error');";
+        $results[]="    return response.text();";
+        $results[]="  }).then(function(html) {";
+        $results[]="    var new_summary=new DOMParser().parseFromString(html, 'text/html').querySelector('.products_summary');";
+        $results[]="    var current_summary=document.querySelector('.products_summary');";
+        $results[]="    if (!new_summary || !current_summary) { window.location.href=url; return; }";
+        $results[]="    current_summary.replaceWith(new_summary);";
+        $results[]="    if (push_state) window.history.pushState({}, '', url);";
+        $results[]="    window.scrollTo(0, 0);";
+        $results[]="  }).catch(function() {";
+        $results[]="    window.location.href=url;";
+        $results[]="  }).finally(function() {";
+        $results[]="    spinner.remove();";
+        $results[]="  });";
+        $results[]="}";
+        $results[]="</script>";
         return implode("\n",$results);
     }
     function blocked_categories() {
