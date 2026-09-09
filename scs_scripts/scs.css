@@ -208,6 +208,42 @@ div.portalcategory img { vertical-align: middle; }
 
 #catalog_subcategory_wrapper { padding: 20px; }
 
+.catalog_unit_filter {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding: 10px 0 15px 0;
+}
+.catalog_unit_filter_label {
+	font-size: 13px;
+	font-weight: bold;
+	color: #404040;
+	margin-right: 2px;
+}
+.catalog_unit_filter_pill {
+	display: inline-block;
+	font-family: "Open Sans",sans-serif;
+	font-size: 13px;
+	color: #404040;
+	background: #eeeeee;
+	border: 1px solid #dddddd;
+	border-radius: 20px;
+	padding: 6px 16px;
+	text-decoration: none;
+}
+.catalog_unit_filter_pill:hover {
+	background: #404040;
+	color: #ffffff;
+	text-decoration: none;
+}
+.catalog_unit_filter_pill.active {
+	background: #c00000;
+	border-color: #c00000;
+	color: #ffffff;
+	font-weight: bold;
+}
+
 .catalog_subcategory_list {
 	overflow:auto;
     padding-bottom: 10px;
