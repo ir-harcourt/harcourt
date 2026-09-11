@@ -288,7 +288,6 @@ div.portalcategory img { vertical-align: middle; }
 }
 .catalog_subcategory_list ul li {
     background-color: White;
-    border: 1px solid #eee;
     display: block;
     overflow: hidden;
     float: left;
@@ -300,7 +299,6 @@ div.portalcategory img { vertical-align: middle; }
 	text-decoration: none;
 	color: black;
     background-color: White;
-    border: 1px solid #eee;
     display: block;
     overflow: hidden;
     float: left;
