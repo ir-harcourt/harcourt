@@ -293,7 +293,7 @@ div.portalcategory img { vertical-align: middle; }
     overflow: hidden;
     float: left;
     width: 100px;
-	height: 140px;
+	height: 160px;
     padding: 0px 0px 0px 0px;
 }
 .catalog_subcategory_list a {
@@ -305,7 +305,7 @@ div.portalcategory img { vertical-align: middle; }
     overflow: hidden;
     float: left;
     width: 100px;
-	height: 140px;
+	height: 160px;
     padding: 0px 0px 0px 0px;
 }
 .catalog_subcategory_list :hover {
@@ -317,7 +317,10 @@ div.portalcategory img { vertical-align: middle; }
 @media only screen and ( max-width : 576px ) {
 	.catalog_subcategory_list ul li {
 		width: 50%;
-		height: 150px;
+		height: 170px;
+	}
+	.catalog_subcategory_list a {
+		height: 170px;
 	}
 }
 .catalog_text {
