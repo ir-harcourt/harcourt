@@ -232,6 +232,7 @@ class CatalogTest extends TestCase
             'category_id'     => 0,
             'subcategory_id'  => 0,
             'debug'           => 0,
+            'unit_type'       => '',
         ], $overrides);
     }
 
@@ -535,6 +536,90 @@ class CatalogTest extends TestCase
         $this->assertStringContainsString("<a href='#'><span class='subcat20'>", $html);
         $this->assertStringNotContainsString('catalog_blocked_link', $html);
         $this->assertStringContainsString('Antivirus', $html);
+    }
+
+    // ── output_summary(): unit_type (metric/imperial) filter ────────────
+
+    /** @runInSeparateProcess @preserveGlobalState disabled */
+    public function test_output_summary_metric_filter_shows_only_metric_subcategories(): void {
+        global $database;
+        $obj = $this->bareCatalogInstance();
+        $_SESSION['user'] = $this->defaultSessionUser();
+        $database->temp = new CatalogStubTable();
+        $database->temp->rows = [];
+
+        $obj->category    = [1 => (object) ['id' => 1, 'name' => 'Bushings']];
+        $obj->subcategory = [
+            10 => $this->subcategoryFixture(['id' => 10, 'name' => 'Press Fit', 'category_id' => 1]),
+            16 => $this->subcategoryFixture(['id' => 16, 'name' => 'Press Fit (Metric)', 'category_id' => 1]),
+        ];
+        $obj->php_self    = '/catalog.php';
+        $obj->request     = ['debug' => 0];
+        $obj->search_code = '';
+        $obj->category_id = 0;
+        $obj->new_date    = 0;
+        $obj->unit_type   = 'metric';
+
+        ob_start();
+        $obj->output_summary([1 => [10, 16]]);
+        $html = ob_get_clean();
+
+        $this->assertStringNotContainsString("<span class='subcat10'>", $html);
+        $this->assertStringContainsString("<span class='subcat16'>", $html);
+        $this->assertStringContainsString('Press Fit (Metric)', $html);
+    }
+
+    /** @runInSeparateProcess @preserveGlobalState disabled */
+    public function test_output_summary_imperial_filter_excludes_metric_subcategories(): void {
+        global $database;
+        $obj = $this->bareCatalogInstance();
+        $_SESSION['user'] = $this->defaultSessionUser();
+        $database->temp = new CatalogStubTable();
+        $database->temp->rows = [];
+
+        $obj->category    = [1 => (object) ['id' => 1, 'name' => 'Bushings']];
+        $obj->subcategory = [
+            10 => $this->subcategoryFixture(['id' => 10, 'name' => 'Press Fit', 'category_id' => 1]),
+            16 => $this->subcategoryFixture(['id' => 16, 'name' => 'Press Fit (Metric)', 'category_id' => 1]),
+        ];
+        $obj->php_self    = '/catalog.php';
+        $obj->request     = ['debug' => 0];
+        $obj->search_code = '';
+        $obj->category_id = 0;
+        $obj->new_date    = 0;
+        $obj->unit_type   = 'imperial';
+
+        ob_start();
+        $obj->output_summary([1 => [10, 16]]);
+        $html = ob_get_clean();
+
+        $this->assertStringContainsString("<span class='subcat10'>", $html);
+        $this->assertStringNotContainsString("<span class='subcat16'>", $html);
+    }
+
+    /** @runInSeparateProcess @preserveGlobalState disabled */
+    public function test_output_summary_metric_filter_hides_category_with_no_metric_counterpart(): void {
+        global $database;
+        $obj = $this->bareCatalogInstance();
+        $_SESSION['user'] = $this->defaultSessionUser();
+        $database->temp = new CatalogStubTable();
+        $database->temp->rows = [];
+
+        $obj->category    = [1 => (object) ['id' => 1, 'name' => 'Bushings']];
+        $obj->subcategory = [10 => $this->subcategoryFixture(['id' => 10, 'name' => 'Press Fit', 'category_id' => 1])];
+        $obj->php_self    = '/catalog.php';
+        $obj->request     = ['debug' => 0];
+        $obj->search_code = '';
+        $obj->category_id = 0;
+        $obj->new_date    = 0;
+        $obj->unit_type   = 'metric';
+
+        ob_start();
+        $obj->output_summary([1 => [10]]);
+        $html = ob_get_clean();
+
+        $this->assertStringNotContainsString('Bushings', $html);
+        $this->assertStringNotContainsString("<span class='subcat10'>", $html);
     }
 
     /** @runInSeparateProcess @preserveGlobalState disabled */
