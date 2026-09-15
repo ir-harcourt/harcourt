@@ -306,7 +306,7 @@ class CatalogTest extends TestCase
     }
 
     private function subcategoryFixture(array $overrides = []): stdClass {
-        return (object) array_merge([
+        $data = array_merge([
             'id'               => 2,
             'name'             => 'Software',
             'category_id'      => 2,
@@ -320,6 +320,12 @@ class CatalogTest extends TestCase
             'description'      => '',
             'prj'              => 0,
         ], $overrides);
+        // Mirrors catalog.php: is_metric is derived once from the untranslated
+        // name at load time, before translation may overwrite ->name.
+        if (!array_key_exists('is_metric', $overrides)) {
+            $data['is_metric'] = (stripos($data['name'], '(Metric') !== false);
+        }
+        return (object) $data;
     }
 
     // ── /catalog page access control ────────────────────────────────────
@@ -595,6 +601,37 @@ class CatalogTest extends TestCase
 
         $this->assertStringContainsString("<span class='subcat10'>", $html);
         $this->assertStringNotContainsString("<span class='subcat16'>", $html);
+    }
+
+    /** @runInSeparateProcess @preserveGlobalState disabled */
+    public function test_output_summary_metric_filter_survives_translated_name_without_metric_suffix(): void {
+        // Regression: for non-EN users, catalog.php overwrites ->name with a
+        // translated string from the content table, which may not carry the
+        // "(Metric)" marker. is_metric is captured once from the untranslated
+        // name at load time, so the filter must keep working after translation.
+        global $database;
+        $obj = $this->bareCatalogInstance();
+        $_SESSION['user'] = $this->defaultSessionUser();
+        $database->temp = new CatalogStubTable();
+        $database->temp->rows = [];
+
+        $obj->category    = [1 => (object) ['id' => 1, 'name' => 'Bushings']];
+        $obj->subcategory = [
+            16 => $this->subcategoryFixture(['id' => 16, 'name' => 'Ajustement Presse', 'category_id' => 1, 'is_metric' => true]),
+        ];
+        $obj->php_self    = '/catalog.php';
+        $obj->request     = ['debug' => 0];
+        $obj->search_code = '';
+        $obj->category_id = 0;
+        $obj->new_date    = 0;
+        $obj->unit_type   = 'metric';
+
+        ob_start();
+        $obj->output_summary([1 => [16]]);
+        $html = ob_get_clean();
+
+        $this->assertStringContainsString("<span class='subcat16'>", $html);
+        $this->assertStringContainsString('Ajustement Presse', $html);
     }
 
     /** @runInSeparateProcess @preserveGlobalState disabled */

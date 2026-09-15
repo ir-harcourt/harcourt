@@ -159,6 +159,7 @@ class catalog_output_class {
 		$database->subcategory->query("select * from subcategory");
         while ($database->subcategory->fetch = $database->subcategory->fetch_array() ) {
 			$database->subcategory->fetch();
+            $database->subcategory->data->is_metric=(stripos($database->subcategory->data->name,"(Metric") !== FALSE);
             $this->subcategory[$database->subcategory->data->id]=$database->subcategory->data;
         }
         $database->subcategory->free_result();
@@ -768,7 +769,7 @@ class catalog_output_class {
 		foreach ($summary_list as $category_id => $subcategory_list) {
 	        if (strlen($this->unit_type)) {
 	            $subcategory_list=array_values(array_filter($subcategory_list,function($subcategory_id) {
-	                $is_metric=(stripos($this->subcategory[$subcategory_id]->name,"(Metric") !== FALSE);
+	                $is_metric=$this->subcategory[$subcategory_id]->is_metric;
 	                return ($this->unit_type=="metric") ? $is_metric : !$is_metric;
 	            }));
 	            if (!sizeof($subcategory_list)) continue;
