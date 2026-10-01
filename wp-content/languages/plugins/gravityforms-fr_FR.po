@@ -2,7 +2,7 @@
 # This file is distributed under the same license as the RocketGenius - Gravity Forms package.
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2026-08-28 10:10:50+0000\n"
+"PO-Revision-Date: 2026-09-21 16:56:07+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -13942,7 +13942,7 @@ msgstr "Guinée"
 
 #: includes/fields/class-gf-field-address.php:772
 msgid "Guernsey"
-msgstr "Guernsey"
+msgstr "Guernesey"
 
 #: includes/fields/class-gf-field-address.php:771
 msgid "Guatemala"
