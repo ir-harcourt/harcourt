@@ -41,6 +41,7 @@
 		dispatch( commandsStore ).registerCommand( {
 			name: 'user-switching/switch-back',
 			label: settings.switchBackLabel,
+			// This facilitates searching either in English or the localized language
 			searchLabel: `Switch back ${ settings.switchBackLabel }`,
 			icon: settings.switchBackAvatar ? el( 'img', {
 				src: settings.switchBackAvatar,
@@ -81,9 +82,9 @@
 					.trim();
 				const search = useDebouncedValue( trimmedSearch );
 
-				const { users, isLoading } = useSelect( function ( select ) {
+				const { users = [], isLoading } = useSelect( function ( select ) {
 					if ( ! search ) {
-						return { users: [], isLoading: false };
+						return { users: undefined, isLoading: false };
 					}
 
 					const query = {
@@ -94,7 +95,7 @@
 					const core = select( coreStore );
 
 					return {
-						users: core.getEntityRecords( 'root', 'user', query ) || [],
+						users: core.getEntityRecords( 'root', 'user', query ) || undefined,
 						isLoading: ! core.hasFinishedResolution( 'getEntityRecords', [ 'root', 'user', query ] ),
 					};
 				}, [ search ] );

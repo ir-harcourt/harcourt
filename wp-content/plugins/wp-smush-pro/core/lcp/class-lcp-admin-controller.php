@@ -3,6 +3,7 @@
 namespace Smush\Core\LCP;
 
 use Smush\Core\Controller;
+use Smush\Core\Helper;
 use Smush\Core\Settings;
 
 class LCP_Admin_Controller extends Controller {
@@ -122,6 +123,12 @@ class LCP_Admin_Controller extends Controller {
 		if ( ! check_ajax_referer( 'wp-smush-ajax', '_ajax_nonce', false ) ) {
 			wp_send_json_error( array(
 				'error_msg' => esc_html__( 'Nonce verification failed.', 'wp-smushit' ),
+			) );
+		}
+
+		if ( ! Helper::is_user_allowed( 'manage_options' ) || ! $this->settings->has_lazy_preload_page() ) {
+			wp_send_json_error( array(
+				'error_msg' => esc_html__( 'Unauthorized', 'wp-smushit' ),
 			) );
 		}
 

@@ -10,6 +10,10 @@
 
 namespace WPMUDEV\Hub\Connector;
 
+use WPMUDEV\Hub\Connector\Vendor\phpseclib3\Crypt\PublicKeyLoader;
+use WPMUDEV\Hub\Connector\Vendor\phpseclib3\Crypt\RSA;
+use WPMUDEV\Hub\Connector\Vendor\phpseclib3\Crypt\RSA\PublicKey;
+
 // nature of the callbacks workflow.
 // phpcs:disable Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
 
@@ -57,7 +61,7 @@ class Remote {
 		}
 
 		// Using priority because some plugins may initialize updates with low priority.
-		add_action( 'init', array( $this, 'run_request' ), 999 );
+		add_action( 'init', array( $this, 'run_request' ), 1000 );
 	}
 
 	/**
@@ -166,7 +170,7 @@ class Remote {
 	 */
 	public function validate_hash( $hash, $id, $json ) {
 		// Validation.
-		if ( empty( $hash ) || empty( $id ) || empty( $json ) ) {
+		if ( ! API::get()->has_api_key() || empty( $hash ) || empty( $id ) || empty( $json ) ) {
 			return false;
 		}
 
@@ -189,40 +193,29 @@ class Remote {
 	 * Check nonce to prevent replay attacks.
 	 *
 	 * @since 1.0.0
-	 * @since 1.0.7 ( add $json body as validation parameter )
+	 * @since 1.1.1 Validate timestamp age and claim it atomically.
 	 *
-	 * @param string $id   Request ID.
-	 * @param string $json Request body json raw.
+	 * @param string $id Request ID.
 	 *
 	 * @return bool
 	 */
-	public function validate_nonce( $id, $json ) {
-		// Validation.
-		if ( empty( $id ) ) {
+	protected function validate_nonce( $id ) {
+		if ( ! is_string( $id ) || '' === $id ) {
 			return false;
 		}
 
-		if ( ! is_string( $json ) ) {
-			$json = '';
+		$id_parts = explode( '-', $id, 2 );
+		if ( 2 !== count( $id_parts ) || '' === $id_parts[0] || ! is_numeric( $id_parts[1] ) ) {
+			return false;
 		}
 
-		// Get nonce from ID.
-		list( $id, $timestamp ) = explode( '-', $id );
-
-		// include the data in the prevention checks, it means identical data / json can not be replayed, but different data / json can be replayed -- which is the whole point of the nonce.
-		$hashed_json = hash_hmac( 'sha256', $json, API::get()->get_api_key() );
-
-		// Get saved nonce.
-		$nonce = floatval( Options::get_transient( sprintf( 'hub_nonce_%s', $hashed_json ) ) );
-
-		if ( floatval( $timestamp ) > $nonce ) {
-			// If valid nonce, save it. Hold for a day ( similar as wp_nonce_tick ).
-			Options::set_transient( sprintf( 'hub_nonce_%s', $hashed_json ), floatval( $timestamp ), DAY_IN_SECONDS );
-
-			return true;
+		$timestamp    = (float) $id_parts[1];
+		$current_time = microtime( true );
+		if ( $timestamp < ( $current_time - ( 3 * MINUTE_IN_SECONDS ) ) || $timestamp > ( $current_time + ( 3 * MINUTE_IN_SECONDS ) ) ) {
+			return false;
 		}
 
-		return false;
+		return Options::claim_hub_nonce( $timestamp );
 	}
 
 	/**
@@ -270,17 +263,21 @@ class Remote {
 		// Validate auth hash.
 		$is_valid = $this->validate_hash( $hash, $req_id, $json );
 
-		if ( ! $is_valid && $die_on_failure ) {
-			wp_send_json_error(
-				array(
-					'code'    => 'incorrect_auth',
-					'message' => __( 'Incorrect authentication', 'wpmudev' ),
-				)
-			);
+		if ( ! $is_valid ) {
+			if ( $die_on_failure ) {
+				wp_send_json_error(
+					array(
+						'code'    => 'incorrect_auth',
+						'message' => __( 'Incorrect authentication', 'wpmudev' ),
+					)
+				);
+			}
+
+			return false;
 		}
 
 		// Check nonce to prevent replay attacks.
-		if ( ! $this->validate_nonce( $req_id, $json ) ) {
+		if ( ! $this->validate_nonce( $req_id ) ) {
 			if ( $die_on_failure ) {
 				wp_send_json_error(
 					array(
@@ -326,7 +323,7 @@ class Remote {
 	 */
 	public function action_logout( $params, $action ) {
 		// Logout the site.
-		API::get()->logout( false );
+		API::get()->logout();
 
 		wp_send_json_success();
 	}
@@ -338,6 +335,7 @@ class Remote {
 	 * only one package at a time.
 	 *
 	 * @since 1.0.0
+	 * @since 1.1.0 Force signature verifications on plugins/themes list requests
 	 *
 	 * @param object $params Parameters passed in json body.
 	 * @param string $action The action name that was called.
@@ -345,8 +343,19 @@ class Remote {
 	 * @return void
 	 */
 	public function action_install( $params, $action ) {
-		$errors    = array();
-		$installed = array();
+		$errors       = array();
+		$installed    = array();
+		$items        = array_merge(
+			isset( $params->plugins ) && is_array( $params->plugins ) ? $params->plugins : array(),
+			isset( $params->themes ) && is_array( $params->themes ) ? $params->themes : array()
+		);
+		$only_wpmudev = ! empty( $items );
+		foreach ( $items as $item ) {
+			if ( ! is_numeric( $item ) ) {
+				$only_wpmudev = false;
+				break;
+			}
+		}
 
 		// Set options.
 		$options = array(
@@ -357,10 +366,21 @@ class Remote {
 		);
 
 		// Process plugins.
-		if ( isset( $params->plugins ) && is_array( $params->plugins ) ) {
+		if ( ! empty( $params->plugins ) && is_array( $params->plugins ) ) {
+			$verified = $this->verify_signed_data( $params->plugins, $params->signed_plugins ?? '' );
+			if ( ! $verified ) {
+				$errors[] = array(
+					'file'    => 'plugins',
+					'code'    => 'INS.99',
+					'message' => 'Invalid plugins signature',
+					'log'     => false,
+				);
+				// bail.
+				wp_send_json_error( compact( 'installed', 'errors' ) );
+			}
 			foreach ( $params->plugins as $plugin ) {
 				// Perform installation.
-				$success = Upgrader::get()->install( $plugin, 'plugin', $options );
+				$success = Upgrader::get()->install_signed( $plugin, 'plugin', $params->plugins, $params->signed_plugins ?? '', $options );
 
 				// If successfully installed.
 				if ( $success ) {
@@ -381,10 +401,21 @@ class Remote {
 		}
 
 		// Process themes.
-		if ( isset( $params->themes ) && is_array( $params->themes ) ) {
+		if ( ! empty( $params->themes ) && is_array( $params->themes ) ) {
+			$verified = $this->verify_signed_data( $params->themes, $params->signed_themes ?? '' );
+			if ( ! $verified ) {
+				$errors[] = array(
+					'file'    => 'themes',
+					'code'    => 'INS.99',
+					'message' => 'Invalid themes signature',
+					'log'     => false,
+				);
+				// bail.
+				wp_send_json_error( compact( 'installed', 'errors' ) );
+			}
 			foreach ( $params->themes as $theme ) {
 				// Perform installation.
-				$success = Upgrader::get()->install( $theme, 'theme', $options );
+				$success = Upgrader::get()->install_signed( $theme, 'theme', $params->themes, $params->signed_themes ?? '', $options );
 
 				// Prepare success response.
 				if ( $success ) {
@@ -405,6 +436,10 @@ class Remote {
 		}
 
 		if ( count( $installed ) ) {
+			if ( $only_wpmudev && ! defined( '\WPMUDEV_REMOTE_SKIP_SYNC' ) ) {
+				define( 'WPMUDEV_REMOTE_SKIP_SYNC', true );
+			}
+
 			// If at least one project installed.
 			wp_send_json_success( compact( 'installed', 'errors' ) );
 		} else {
@@ -426,6 +461,10 @@ class Remote {
 	 * @return void
 	 */
 	public function action_activate( $params, $action ) {
+		if ( ! defined( '\WPMUDEV_REMOTE_SKIP_SYNC' ) ) {
+			define( 'WPMUDEV_REMOTE_SKIP_SYNC', true );
+		}
+
 		include_once ABSPATH . 'wp-admin/includes/plugin.php';
 
 		$errors    = array();
@@ -454,7 +493,17 @@ class Remote {
 		// Process themes.
 		if ( isset( $params->themes ) && is_array( $params->themes ) ) {
 			foreach ( $params->themes as $theme ) {
+				if ( ! is_scalar( $theme ) || '' === trim( (string) $theme ) ) {
+					$errors[] = array(
+						'file'    => $theme,
+						'code'    => 'invalid_theme',
+						'message' => __( 'Invalid theme slug.', 'wpmudev' ),
+					);
+					continue;
+				}
+
 				// Check that this is a valid theme.
+				$theme       = (string) $theme;
 				$check_theme = wp_get_theme( $theme );
 
 				if ( ! $check_theme->exists() ) {
@@ -468,7 +517,7 @@ class Remote {
 
 				if ( is_multisite() ) {
 					// Allow theme network wide.
-					$allowed_themes           = get_site_option( 'allowedthemes' );
+					$allowed_themes           = (array) get_site_option( 'allowedthemes', array() );
 					$allowed_themes[ $theme ] = true;
 					update_site_option( 'allowedthemes', $allowed_themes );
 				} else {
@@ -502,6 +551,10 @@ class Remote {
 	 * @return void
 	 */
 	public function action_deactivate( $params, $action ) {
+		if ( ! defined( '\WPMUDEV_REMOTE_SKIP_SYNC' ) ) {
+			define( 'WPMUDEV_REMOTE_SKIP_SYNC', true );
+		}
+
 		include_once ABSPATH . 'wp-admin/includes/plugin.php';
 
 		$errors      = array();
@@ -533,7 +586,17 @@ class Remote {
 		// Process themes.
 		if ( isset( $params->themes ) && is_array( $params->themes ) ) {
 			foreach ( $params->themes as $theme ) {
+				if ( ! is_scalar( $theme ) || '' === trim( (string) $theme ) ) {
+					$errors[] = array(
+						'file'    => $theme,
+						'code'    => 'invalid_theme',
+						'message' => __( 'Invalid theme slug.', 'wpmudev' ),
+					);
+					continue;
+				}
+
 				// Check that this is a valid theme.
+				$theme       = (string) $theme;
 				$check_theme = wp_get_theme( $theme );
 				if ( ! $check_theme->exists() ) {
 					$errors[] = array(
@@ -546,7 +609,7 @@ class Remote {
 
 				if ( is_multisite() ) {
 					// Disallow theme network wide.
-					$allowed_themes = get_site_option( 'allowedthemes' );
+					$allowed_themes = (array) get_site_option( 'allowedthemes', array() );
 					unset( $allowed_themes[ $theme ] );
 					update_site_option( 'allowedthemes', $allowed_themes );
 
@@ -673,6 +736,55 @@ class Remote {
 	 */
 	protected function is_hub_request() {
 		return ! empty( $_GET['wpmudev-hub'] ); // phpcs:ignore
+	}
+
+	/**
+	 * Validate Signed Data
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param mixed  $data        raw data.
+	 * @param string $signed_data base64_encoded and json_encoded.
+	 *
+	 * @return bool
+	 */
+	public function verify_signed_data( $data, $signed_data ) {
+		try {
+			if ( '' === $signed_data ) {
+				return false;
+			}
+
+			$signature = base64_decode( $signed_data, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
+			if ( false === $signature || '' === $signature ) {
+				return false;
+			}
+
+			$public_key_file = apply_filters( 'wpmudev_hub_connector_remote_verify_sign_pub_file_path', plugin_dir_path( WPMUDEV_HUB_CONNECTOR_FILE ) . 'keys/dashboard.pub' );
+			if ( ! is_readable( $public_key_file ) ) {
+				return false;
+			}
+
+			$public_key = file_get_contents( $public_key_file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			if ( false === $public_key ) {
+				return false;
+			}
+
+			$rsa = PublicKeyLoader::loadPublicKey( $public_key );
+			if ( ! $rsa instanceof PublicKey ) {
+				return false;
+			}
+
+			$rsa = $rsa->withHash( 'sha256' )->withMGFHash( 'sha256' )->withSaltLength( 32 )->withPadding( RSA::SIGNATURE_PSS );
+
+			// signature is encoded. retain slashes as is from the data.
+			if ( ! $rsa->verify( wp_json_encode( $data, JSON_UNESCAPED_SLASHES ), $signature ) ) {
+				return false;
+			}
+
+			return true;
+		} catch ( \Throwable $e ) {
+			return false;
+		}
 	}
 }
 

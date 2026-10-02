@@ -32,6 +32,16 @@ class Global_Stats_Controller extends Controller {
 	 */
 	private $settings;
 
+	private static $instance;
+
+	public static function get_instance() {
+		if ( ! self::$instance ) {
+			self::$instance = new self();
+		}
+
+		return self::$instance;
+	}
+
 	public function __construct() {
 		$this->global_stats     = Global_Stats::get();
 		$this->media_item_cache = Media_Item_Cache::get_instance();
@@ -56,7 +66,6 @@ class Global_Stats_Controller extends Controller {
 			$this->global_stats,
 			'mark_as_outdated',
 		), 10, 2 );
-		$this->register_action( 'wp_ajax_wp_smush_get_global_stats', array( $this, 'ajax_get_global_stats' ) );
 		$this->register_filter( 'wp_smush_frontend_poll_data', array( $this, 'add_global_stats_to_poll' ) );
 		$this->register_filter( 'wp_smush_localize_ui_script_data', array( $this, 'localize_global_stats' ), 10, 2 );
 	}
@@ -313,8 +322,9 @@ class Global_Stats_Controller extends Controller {
 		$this->global_stats->update_stats_update_started_timestamp( time() );
 	}
 
-	public function update_scan_finished_timestamp() {
+	public function mark_as_up_to_date() {
 		$this->global_stats->update_stats_updated_timestamp( time() );
+		$this->global_stats->update_settings_digest();
 	}
 
 	/**
@@ -324,7 +334,7 @@ class Global_Stats_Controller extends Controller {
 		$this->register_action( 'wp_smush_before_scan_library', array( $this, 'update_scan_started_timestamp' ),
 			20 // The priority needs to be managed here because reset_counts resets the scan started timestamp as well
 		);
-		$this->register_action( 'wp_smush_after_scan_library', array( $this, 'update_scan_finished_timestamp' ) );
+		$this->register_action( 'wp_smush_after_scan_library', array( $this, 'mark_as_up_to_date' ) );
 
 		// Savings etc.
 		$this->register_scan_process(
@@ -346,16 +356,6 @@ class Global_Stats_Controller extends Controller {
 			array( $this, 'accumulate_attachment_ids' ),
 			array( $this, 'save_optimization_lists' )
 		);
-	}
-
-	public function ajax_get_global_stats() {
-		// TODO: check ajax referrer
-
-		if ( ! Helper::is_user_allowed() ) {
-			wp_send_json_error();
-		}
-
-		wp_send_json( $this->global_stats->to_array() );
 	}
 
 	/**

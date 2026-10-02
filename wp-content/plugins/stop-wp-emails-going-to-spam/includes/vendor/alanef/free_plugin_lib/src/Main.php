@@ -12,7 +12,7 @@ class Main {
 	/**
 	 * @var string
 	 */
-	private static $version = '1.0.1';
+	private static $version = '1.2.4';
 	/**
 	 * @var mixed
 	 */
@@ -55,7 +55,9 @@ class Main {
 		// Admin notice for setup prompt
 		add_action('admin_notices', array($this, 'maybe_show_setup_notice'));
 
-		add_action('ffpl_ad_display', array(new Classes\Advert(), 'ad_display'));
+		if (!\has_action('ffpl_ad_display')) {
+			add_action('ffpl_ad_display', array(new Classes\Advert(), 'ad_display'));
+		}
 	}
 
 	public static function plugin_uninstall() {
@@ -67,8 +69,9 @@ class Main {
 			return;
 		}
 
-		// Verify nonce
-		if (!wp_verify_nonce($_GET['ffpl_skip'], 'ffpl_skip_' . self::$plugin_shortname)) {
+		// Verify nonce - the nonce IS the ffpl_skip value
+		$nonce = sanitize_text_field(wp_unslash($_GET['ffpl_skip']));
+		if (!wp_verify_nonce($nonce, 'ffpl_skip_' . self::$plugin_shortname)) {
 			return;
 		}
 
@@ -80,15 +83,16 @@ class Main {
 		exit;
 	}
 
-    public function handle_optin_page() {
-        $current_page = $_GET['page'] ?? '';
-        $option = get_site_option(self::$plugin_shortname . '_form_rendered');
-        if ('pending' === $option && $current_page == $this->page) {
-            update_site_option(self::$plugin_shortname . '_form_rendered', 'rendering');
-            wp_safe_redirect(admin_url('options-general.php?page=ffpl-opt-in-'.self::$plugin_shortname ));
-            exit;
-        }
-    }
+	public function handle_optin_page() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- This is page routing, not form processing
+		$current_page = isset($_GET['page']) ? sanitize_text_field(wp_unslash($_GET['page'])) : '';
+		$option = get_site_option(self::$plugin_shortname . '_form_rendered');
+		if ('pending' === $option && $current_page === $this->page) {
+			update_site_option(self::$plugin_shortname . '_form_rendered', 'rendering');
+			wp_safe_redirect(admin_url('options-general.php?page=ffpl-opt-in-' . self::$plugin_shortname));
+			exit;
+		}
+	}
 
 	public function plugin_action_links($links) {
 		$settings_link = '<a href="' . esc_url($this->settings_page) . '">' . esc_html($this->translate('Settings')) . '</a>';
@@ -252,7 +256,7 @@ class Main {
 
 	public function handle_optin_ajax() {
 		// Verify request method
-		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		if (!isset($_SERVER['REQUEST_METHOD']) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
 			wp_send_json_error(['message' => $this->translate('Invalid request method')]);
 			wp_die();
 		}
@@ -281,7 +285,7 @@ class Main {
 			wp_die();
 		}
 
-		$email = sanitize_email(wp_unslash($_POST['email']));
+		$email = isset($_POST['email']) ? sanitize_email(wp_unslash($_POST['email'])) : '';
 
 		$email_handler = new Email(self::$plugin_shortname);
 		$result = $email_handler->handle_optin_submission($email);

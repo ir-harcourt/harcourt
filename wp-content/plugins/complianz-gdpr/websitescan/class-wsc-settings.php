@@ -158,7 +158,9 @@ if ( ! class_exists( 'cmplz_wsc_settings' ) ) {
 			$error_token_api = get_option( 'cmplz_wsc_error_token_api' );
 
 			if ( ! $token ) {
-				$token = cmplz_wsc_auth::get_token( true );
+				// Reuse/refresh via get_token(); respects the auth-failure backoff so
+				// the admin status page cannot storm /oauth/token on a 401 site.
+				$token = cmplz_wsc_auth::get_token();
 			}
 
 			if ( $token ) {
@@ -193,7 +195,7 @@ if ( ! class_exists( 'cmplz_wsc_settings' ) ) {
 								'id'           => 'settings-websitescan',
 								'title'        => __( 'Website Scan', 'complianz-gdpr' ),
 								'intro'        => __( 'Here you can manage your credentials. If you don’t want to use the Website Scan, you can reset it. A token will be created to verify your website. After creating your credentials, please make sure to check your email for a confirmation.', 'complianz-gdpr' ),
-								'premium_text' => __( 'View and manage Processing Agreements with %sComplianz GDPR Premium%s', 'complianz-gdpr' ),
+								'premium_text' => __( 'View and manage Processing Agreements with %1$sComplianz GDPR Premium%2$s', 'complianz-gdpr' ),
 								'helpLink'     => 'https://complianz.io/about-the-website-scan/',
 							);
 							$menu[ $key ]['menu_items'][ $menu_key ]['groups'][] = $websiteScanItem;

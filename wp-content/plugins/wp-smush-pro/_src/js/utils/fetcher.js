@@ -1,4 +1,5 @@
 /* global ajaxurl */
+import { getResetNonce } from '../../smush-ui/core-ui/utils/smushData';
 
 /**
  * Wrapper function for ajax calls to WordPress.
@@ -81,6 +82,13 @@ function SmushFetcher() {
 			},
 
 			/**
+			 * Reset background process status.
+			 */
+			resetStatus: () => {
+				return request( 'bulk_smush_reset_status' );
+			},
+
+			/**
 			 * Initial State - Get stats on the first time.
 			 */
 			initState: () => {
@@ -94,8 +102,11 @@ function SmushFetcher() {
 				return request( 'bulk_smush_get_status' );
 			},
 
+			/**
+			 * Get session savings stats after bulk smush completes.
+			 */
 			getStats: () => {
-				return request( 'bulk_smush_get_global_stats' );
+				return request( 'bulk_smush_get_stats' );
 			},
 
 			backgroundHealthyCheck: () => {
@@ -107,16 +118,6 @@ function SmushFetcher() {
 			}
 		},
 		smush: {
-			/**
-			 * Sync stats.
-			 *
-			 * @param  data
-			 */
-			syncStats: ( data ) => {
-				data = data || {};
-				return request( 'get_stats', data );
-			},
-
 			/**
 			 * Ignore All.
 			 *
@@ -189,16 +190,14 @@ function SmushFetcher() {
 			/**
 			 * Dismiss Notice.
 			 *
-			 * @param {string} dismissId Notification id.
+			 * @param {string}  dismissId    Notification id.
+			 * @param {boolean} useUserMeta Store the dismissal for the current user.
 			 */
-			dismissNotice: ( dismissId ) => {
+			dismissNotice: ( dismissId, useUserMeta = false ) => {
 				return request( 'smush_dismiss_notice', {
-					key: dismissId
+					key:       dismissId,
+					user_meta: useUserMeta ? 1 : 0,
 				} );
-			},
-
-			remindReviewPrompt: () => {
-				return request( 'wp_smush_review_prompts_remind_later' );
 			},
 
 			/**
@@ -248,12 +247,16 @@ function SmushFetcher() {
 					_ajax_nonce,
 				} );
 			},
+
+			resetStatus: () => {
+				const _ajax_nonce = window.smushUIData.scanStatus.nonce;
+				return request( 'wp_smush_reset_background_scan_status', {
+					_ajax_nonce,
+				} );
+			}
 		},
 
 		webp: {
-			switchMethod: ( method ) => {
-				return request( 'webp_switch_method', { method } );
-			},
 			recheckStatus: () => {
 				return request( 'smush_webp_get_status' );
 			},
@@ -300,6 +303,17 @@ function SmushFetcher() {
 			 */
 			checkApiStatus: () => {
 				return request( 'recheck_api_status' );
+			},
+
+			/**
+			 * Reset all plugin settings to factory defaults.
+			 *
+			 * @return {Promise}
+			 */
+			resetSettings: () => {
+				return request( 'reset_settings', {
+					_ajax_nonce: getResetNonce(),
+				} );
 			},
 		},
 

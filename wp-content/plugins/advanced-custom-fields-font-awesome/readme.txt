@@ -3,8 +3,8 @@
 Contributors: justinkruit, mattkeys
 Tags: Advanced Custom Fields, ACF, Font Awesome, FontAwesome
 Requires at least: 6.5
-Tested up to: 7.0
-Stable tag: 6.0.4
+Tested up to: 7.1
+Stable tag: 6.2.0
 Requires PHP: 5.6
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -84,7 +84,29 @@ This notification message is filterable so you can customize it to better repres
 1. Set a default icon, and choose how you want icon data to be returned.
 2. Searchable list of all icons, including large live preview
 
+== Frequently Asked Questions ==
+= Where do I report security bugs found in this plugin? =
+
+Please report security bugs found in the source code of the Advanced Custom Fields: Font Awesome Field plugin through the [Patchstack Vulnerability Disclosure  Program](https://patchstack.com/database/vdp/d5028112-9b80-4292-b5da-bc0e3c1cac0d). The Patchstack team will assist you with verification, CVE assignment, and notify the developers of this plugin.
+
 == Changelog ==
+
+= 6.2.0 =
+* New: When using a FontAwesome Kit, icon search and the icon showcase now only show icons and styles that are actually included in your kit, instead of the full FontAwesome library.
+
+= 6.1.4 =
+* Security: Replaced the FontAwesome API query validator with a server-built request.
+* Bugfix: FontAwesome 5.x icon search results were being grouped under the wrong icon style, causing only Brand icons to appear correctly.
+* Added: FontAwesome 5.x icon search now also matches against FontAwesome's icon search terms/aliases (e.g. searching "test" now finds the "vial" icon), not just icon names.
+
+= 6.1.3 =
+* Security: Further hardened the FontAwesome API query feature.
+
+= 6.1.2 =
+* Security: Hardened the FontAwesome API query feature against unauthorized use.
+
+= 6.1.1 =
+* Added: Support for new FontAwesome 7.3.0 Pro+ icon families: Pixel, Mosaic, Vellum, Slab Duo, and Slab Press Duo.
 
 = 6.0.4 =
 * Bugfix: Made z-index of the icon chooser popup higher to avoid conflicts with with ACF block sidebar.

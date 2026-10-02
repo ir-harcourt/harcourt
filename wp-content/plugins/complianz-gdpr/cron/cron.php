@@ -1,9 +1,9 @@
 <?php
-defined( 'ABSPATH' ) or die( "you do not have access to this page!" );
+defined( 'ABSPATH' ) or die( 'you do not have access to this page!' );
 
 /**
-  Schedule cron jobs if useCron is true
-  Else start the functions.
+	Schedule cron jobs if useCron is true
+	Else start the functions.
 */
 
 add_action( 'plugins_loaded', 'cmplz_schedule_cron' );
@@ -47,20 +47,20 @@ add_filter( 'cron_schedules', 'cmplz_filter_cron_schedules' );
 function cmplz_filter_cron_schedules( $schedules ) {
 	$schedules['cmplz_monthly'] = array(
 		'interval' => MONTH_IN_SECONDS,
-		'display'  => __( 'Once every month' )
+		'display'  => __( 'Once every month' ),
 	);
 	$schedules['cmplz_weekly']  = array(
 		'interval' => WEEK_IN_SECONDS,
-		'display'  => __( 'Once every week' )
+		'display'  => __( 'Once every week' ),
 	);
 	$schedules['cmplz_daily']   = array(
 		'interval' => DAY_IN_SECONDS,
-		'display'  => __( 'Once every day' )
+		'display'  => __( 'Once every day' ),
 	);
 
-	$schedules['cmplz_five_minutes']   = array(
+	$schedules['cmplz_five_minutes'] = array(
 		'interval' => 5 * MINUTE_IN_SECONDS,
-		'display'  => __( 'Once every five minutes' )
+		'display'  => __( 'Once every five minutes' ),
 	);
 
 	return $schedules;
@@ -77,8 +77,8 @@ function cmplz_clear_scheduled_hooks() {
  * Clean placeholders directory periodically
  */
 function cmplz_cron_clean_placeholders() {
-	require_once( ABSPATH . 'wp-admin/includes/file.php' );
-	$dirname = cmplz_upload_dir("placeholders");
+	require_once ABSPATH . 'wp-admin/includes/file.php';
+	$dirname = cmplz_upload_dir( 'placeholders' );
 	array_map( 'unlink', glob( "$dirname/*.*" ) );
 }
 

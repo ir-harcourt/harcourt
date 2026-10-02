@@ -104,6 +104,12 @@ class Dir extends Abstract_Module {
 		}
 
 		add_action( 'current_screen', array( $this, 'initialize' ), 10 );
+		// Handle Ajax request for directory smush stats (stats meta box).
+		add_action( 'wp_ajax_get_dir_smush_stats', array( $this, 'get_dir_smush_stats' ) );
+	}
+
+	public function __call( $method_name, $arguments ) {
+		_deprecated_function( esc_html( $method_name ), '4.2.0' );
 	}
 
 	/**
@@ -191,7 +197,10 @@ class Dir extends Abstract_Module {
 	public function directory_smush_start() {
 		check_ajax_referer( 'wp-smush-ajax' );
 		// Check for permission.
-		if ( ! Helper::is_user_allowed( 'manage_options' ) ) {
+		if (
+			! Helper::is_user_allowed( 'manage_options' )
+			|| ! $this->settings->is_directory_smush_active()
+		) {
 			wp_die( esc_html__( 'Unauthorized', 'wp-smushit' ), 403 );
 		}
 		$this->scanner->init_scan();
@@ -208,7 +217,10 @@ class Dir extends Abstract_Module {
 		check_ajax_referer( 'wp-smush-ajax' );
 
 		// Check for permission.
-		if ( ! Helper::is_user_allowed( 'manage_options' ) ) {
+		if (
+			! Helper::is_user_allowed( 'manage_options' )
+			|| ! $this->settings->is_directory_smush_active()
+		) {
 			wp_die( esc_html__( 'Unauthorized', 'wp-smushit' ), 403 );
 		}
 
@@ -233,7 +245,10 @@ class Dir extends Abstract_Module {
 		check_ajax_referer( 'wp-smush-ajax' );
 
 		// Check for permission.
-		if ( ! Helper::is_user_allowed( 'manage_options' ) ) {
+		if (
+			! Helper::is_user_allowed( 'manage_options' )
+			|| ! $this->settings->is_directory_smush_active()
+		) {
 			wp_die( esc_html__( 'Unauthorized', 'wp-smushit' ), 403 );
 		}
 
@@ -264,7 +279,10 @@ class Dir extends Abstract_Module {
 	public function directory_smush_cancel() {
 		check_ajax_referer( 'wp-smush-ajax' );
 		// Check for permission.
-		if ( ! Helper::is_user_allowed( 'manage_options' ) ) {
+		if (
+			! Helper::is_user_allowed( 'manage_options' )
+			|| ! $this->settings->is_directory_smush_active()
+		) {
 			wp_die( esc_html__( 'Unauthorized', 'wp-smushit' ), 403 );
 		}
 		$this->scanner->reset_scan();
@@ -358,6 +376,10 @@ class Dir extends Abstract_Module {
 				$id
 			)
 		); // Db call ok; no-cache ok.
+
+		// Image size changed; drop cached totals so the next get_dir_smush_stats()
+		// recomputes (stale on persistent object caches, e.g. WPMU DEV hosting).
+		wp_cache_delete( 'wp-smush-dir_total_stats', 'wp-smush' );
 	}
 
 	/**
@@ -535,7 +557,10 @@ class Dir extends Abstract_Module {
 	 */
 	public function directory_list() {
 		// Check For permission.
-		if ( ! Helper::is_user_allowed( 'manage_options' ) || ! is_user_logged_in() ) {
+		if (
+			! Helper::is_user_allowed( 'manage_options' )
+			|| ! $this->settings->is_directory_smush_active()
+		 ) {
 			Helper::logger()->dir()->error( 'Unauthorized - Permission access.' );
 			wp_send_json_error( __( 'Unauthorized', 'wp-smushit' ) );
 		}
@@ -936,7 +961,10 @@ class Dir extends Abstract_Module {
 	 */
 	public function image_list() {
 		// Check For permission.
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if (
+			! current_user_can( 'manage_options' )
+			|| ! $this->settings->is_directory_smush_active()
+		) {
 			$this->send_error( __( 'Unauthorized', 'wp-smushit' ) );
 		}
 
@@ -1229,47 +1257,6 @@ class Dir extends Abstract_Module {
 	}
 
 	/**
-	 * Combine the stats from Directory Smush and Media Library Smush.
-	 *
-	 * @param array $stats  Directory Smush stats.
-	 *
-	 * @return array Combined array of stats.
-	 */
-	public function combine_stats( $stats ) {
-		if ( empty( $stats ) || empty( $stats['percent'] ) || empty( $stats['bytes'] ) ) {
-			return array();
-		}
-
-		$dasharray = 125.663706144;
-
-		$core = WP_Smush::get_instance()->core();
-
-		// Initialize global stats.
-		$core->setup_global_stats();
-
-		// Get the total/Smushed attachment count.
-		$total_attachments = $core->total_count + $stats['total'];
-		$total_images      = $core->stats['total_images'] + $stats['total'];
-
-		$smushed     = $core->smushed_count + $stats['optimised'];
-		$savings     = ! empty( $core->stats ) ? $core->stats['bytes'] + $stats['bytes'] : $stats['bytes'];
-		$size_before = ! empty( $core->stats ) ? $core->stats['size_before'] + $stats['orig_size'] : $stats['orig_size'];
-		$percent     = $size_before > 0 ? ( $savings / $size_before ) * 100 : 0;
-
-		// Store the stats in array.
-		return array(
-			'total_count'   => $total_attachments,
-			'smushed_count' => $smushed,
-			'savings'       => size_format( $savings ),
-			'percent'       => round( $percent, 1 ),
-			'image_count'   => $total_images,
-			'dash_offset'   => $total_attachments > 0 ? $dasharray - ( $dasharray * ( $smushed / $total_attachments ) ) : $dasharray,
-			/* translators: %s: total number of images */
-			'tooltip_text'  => ! empty( $total_images ) ? sprintf( __( "You've smushed %d images in total.", 'wp-smushit' ), $total_images ) : '',
-		);
-	}
-
-	/**
 	 * Check and create dir smush table if required.
 	 *
 	 * @since 2.9.0
@@ -1406,5 +1393,34 @@ class Dir extends Abstract_Module {
 		);
 
 		return Dir_Settings_DTO::to_react_props( $updated_settings );
+	}
+
+	/**
+	 * Returns Directory Smush stats and Cumulative stats
+	 */
+	public function get_dir_smush_stats() {
+		check_ajax_referer( 'wp-smush-ajax' );
+
+		// Check capability.
+		if (
+			! Helper::is_user_allowed( 'manage_options' )
+			|| ! $this->settings->is_directory_smush_active()
+		) {
+			wp_die( esc_html__( 'Unauthorized', 'wp-smushit' ), 403 );
+		}
+
+		$result = array();
+
+		// Store the Total/Smushed count.
+		$stats = WP_Smush::get_instance()->core()->mod->dir->total_stats();
+
+		$result['dir_smush'] = $stats;
+		$result['errors']    = WP_Smush::get_instance()->core()->mod->dir->get_image_errors_count();
+
+		// Store the stats in options table.
+		update_option( 'dir_smush_stats', $result, false );
+
+		// Send ajax response.
+		wp_send_json_success( $result );
 	}
 }

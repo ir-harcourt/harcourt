@@ -184,6 +184,7 @@ class WP_Job_Manager_Post_Types {
 		add_action( 'wp_head', [ $this, 'noindex_expired_filled_job_listings' ], 0 );
 		add_action( 'wp_footer', [ $this, 'output_structured_data' ] );
 		add_filter( 'wp_sitemaps_posts_query_args', [ $this, 'sitemaps_maybe_hide_filled' ], 10, 2 );
+		add_filter( 'wp_sitemaps_post_types', [ $this, 'sitemaps_maybe_hide_restricted_post_type' ] );
 
 		add_filter( 'the_job_description', 'wptexturize' );
 		add_filter( 'the_job_description', 'convert_smilies' );
@@ -1300,8 +1301,14 @@ class WP_Job_Manager_Post_Types {
 			$this->set_job_expiration( $post, null );
 		}
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce check handled by WP core.
-		$input_job_expires          = isset( $_POST['_job_expires'] ) ? sanitize_text_field( wp_unslash( $_POST['_job_expires'] ) ) : null;
+		// Only a gated admin edit (metabox nonce + edit capability) may set the expiry date
+		// manually. Front-end submissions must have the expiry derived server-side from the
+		// configured submission duration, so an attacker-supplied value is ignored here.
+		$input_job_expires = null;
+		if ( $this->is_authorized_expiry_edit_request( $post ) ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in is_authorized_expiry_edit_request().
+			$input_job_expires = isset( $_POST['_job_expires'] ) ? sanitize_text_field( wp_unslash( $_POST['_job_expires'] ) ) : null;
+		}
 		$input_job_expires_datetime = ! empty( $input_job_expires ) ? DateTimeImmutable::createFromFormat( 'Y-m-d', $input_job_expires, wp_timezone() ) : null;
 
 		// See if the user has set the expiry manually.
@@ -1318,6 +1325,32 @@ class WP_Job_Manager_Post_Types {
 				$_POST['_job_expires'] = $expires ? $expires->format( 'Y-m-d' ) : '';
 			}
 		}
+	}
+
+	/**
+	 * Whether the current request is authorized to set a job listing's expiry date manually.
+	 *
+	 * The expiry date may only be supplied directly from the gated admin edit screen, which
+	 * carries the `save_meta_data` nonce and requires the edit capability for the listing
+	 * (see WP_Job_Manager_Writepanels::save_post()). All other paths — in particular a
+	 * front-end submission's preview -> publish transition — must fall back to the
+	 * server-side calculated expiry.
+	 *
+	 * @since 2.4.6
+	 *
+	 * @param WP_Post $post The job listing being saved.
+	 *
+	 * @return bool
+	 */
+	private function is_authorized_expiry_edit_request( $post ) {
+		if (
+			empty( $_POST['job_manager_nonce'] )
+			|| ! wp_verify_nonce( wp_unslash( $_POST['job_manager_nonce'] ), 'save_meta_data' ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Nonce should not be modified.
+		) {
+			return false;
+		}
+
+		return current_user_can( 'edit_post', $post->ID );
 	}
 
 	/**
@@ -1761,6 +1794,31 @@ class WP_Job_Manager_Post_Types {
 	}
 
 	/**
+	 * Excludes job listings from the core sitemap when the View Job Capability restricts
+	 * who may view listings.
+	 *
+	 * The sitemap is generated for anonymous crawlers, which can never satisfy a configured
+	 * view capability, so an enumerated listing there discloses the existence — and, once
+	 * followed, the metadata — of listings the operator made non-public. Drop the whole post
+	 * type from the sitemap index in that case, the way {@see self::viewer_denied_by_view_cap()}
+	 * gates the search and REST-search surfaces.
+	 *
+	 * @access private
+	 * @since 2.4.7
+	 *
+	 * @param array $post_types Post type objects keyed by name.
+	 *
+	 * @return array
+	 */
+	public function sitemaps_maybe_hide_restricted_post_type( $post_types ) {
+		if ( isset( $post_types[ self::PT_LISTING ] ) && self::viewer_denied_by_view_cap() ) {
+			unset( $post_types[ self::PT_LISTING ] );
+		}
+
+		return $post_types;
+	}
+
+	/**
 	 * Add noindex for expired and filled job listings.
 	 */
 	public function noindex_expired_filled_job_listings() {
@@ -1799,7 +1857,11 @@ class WP_Job_Manager_Post_Types {
 		$structured_data = wpjm_get_job_listing_structured_data();
 		if ( ! empty( $structured_data ) ) {
 			echo '<!-- WP Job Manager Structured Data -->' . "\r\n";
-			echo '<script type="application/ld+json">' . wpjm_esc_json( wp_json_encode( $structured_data ), true ) . '</script>';
+			// Script-element content is raw text: HTML entities are never decoded there, so
+			// the payload must use JSON escapes (< etc.), not HTML entities. The HEX
+			// flags escape <, >, &, ' and " so the JSON cannot close the script element.
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The JSON_HEX_* flags escape the payload for the script element.
+			echo '<script type="application/ld+json">' . wp_json_encode( $structured_data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ) . '</script>';
 		}
 	}
 

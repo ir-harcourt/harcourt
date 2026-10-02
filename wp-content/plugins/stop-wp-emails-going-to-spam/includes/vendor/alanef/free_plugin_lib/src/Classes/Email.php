@@ -15,7 +15,7 @@ class Email {
 		'FAUM'   => 'faum',
 		'FSS'    => 'fss',
 		'MMT'    => 'mmt',
-		'CSCF'   => 'cscf',
+		'CSCF'   => 'cfcs',   // deliberate transpose  here
 	];
 
 	public function __construct($plugin_shortname) {
@@ -38,7 +38,7 @@ class Email {
 		}
 
 		// Allow filtering of the verification URL for testing
-		$verify_url = apply_filters( 'ffpl_verify_url', 'https://verify.workflow.fw9.uk' );
+		$verify_url = apply_filters( 'ffpl_verify_url', 'https://campaign.email.fw9.uk/api/webhook/product' );
 
 		$response = wp_remote_post($verify_url, [
 			'headers' => [

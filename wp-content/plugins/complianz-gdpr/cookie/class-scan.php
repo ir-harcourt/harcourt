@@ -339,12 +339,6 @@ if ( ! class_exists( 'cmplz_scan' ) ) {
 			$thirdparty = array_unique( array_merge( $stored_thirdparty_services, $thirdparty ), SORT_REGULAR );
 			update_option( 'cmplz_detected_thirdparty_services', $thirdparty );
 
-			// parse for google analytics and tagmanager, but only if the wizard wasn't completed before.
-			// with this data we prefill the settings and give warnings when tracking is doubled.
-			if ( ! COMPLIANZ::$banner_loader->wizard_completed_once() ) {
-				$this->parse_for_statistics_settings( $html );
-			}
-
 			if ( preg_match_all( '/ga\.js/', $html ) > 1
 				|| preg_match_all( '/analytics\.js/', $html ) > 1
 				|| preg_match_all( '/googletagmanager\.com\/gtm\.js/', $html ) > 1
@@ -397,101 +391,6 @@ if ( ! class_exists( 'cmplz_scan' ) ) {
 			}
 
 			return $stats;
-		}
-
-		/**
-		 * Run once to retrieve the settings for most used stats tools
-		 *
-		 * @param string $html HTML to parse for statistics tool settings.
-		 */
-		private function parse_for_statistics_settings( $html ) {
-
-			if ( strpos( $html, 'gtm.js' ) !== false || strpos( $html, 'gtm.start' ) !== false
-			) {
-				update_option( 'cmplz_detected_stats_type', true );
-
-				$pattern = '/(\'|")(GTM-[A-Z]{7})(\'|")/i';
-				preg_match( $pattern, $html, $matches );
-				if ( $matches && isset( $matches[2] ) ) {
-					cmplz_update_option_no_hooks( 'gtm_code', sanitize_text_field( $matches[2] ) );
-					update_option( 'cmplz_detected_stats_data', true );
-					cmplz_update_option( 'compile_statistics', 'google-tag-manager' );
-				}
-			}
-
-			if ( strpos( $html, 'analytics.js' ) !== false || strpos( $html, 'ga.js' ) !== false || strpos( $html, '_getTracker' ) !== false ) {
-				update_option( 'cmplz_detected_stats_type', true );
-
-				$pattern = '/(\'|")(UA-[0-9]{8}-[0-9]{1})(\'|")/i';
-				preg_match( $pattern, $html, $matches );
-				if ( $matches && isset( $matches[2] ) ) {
-					cmplz_update_option( 'ua_code', sanitize_text_field( $matches[2] ) );
-					cmplz_update_option( 'compile_statistics', 'google-analytics' );
-				}
-
-				// gtag.
-				$pattern = '/(\'|")(G-[0-9a-zA-Z]{10})(\'|")/i';
-				preg_match( $pattern, $html, $matches );
-				if ( $matches && isset( $matches[2] ) ) {
-					cmplz_update_option( 'ua_code', sanitize_text_field( $matches[2] ) );
-					cmplz_update_option( 'compile_statistics', 'google-analytics' );
-				}
-				$pattern = '/\'anonymizeIp|anonymize_ip\'|:[ ]{0,1}true/i';
-				preg_match( $pattern, $html, $matches );
-				if ( $matches ) {
-					$value = cmplz_get_option( 'compile_statistics_more_info' );
-					if ( ! is_array( $value ) ) {
-						$value = array();
-					}
-					if ( ! in_array( 'ip-addresses-blocked', $value, true ) ) {
-						$value[] = 'ip-addresses-blocked';
-					}
-					cmplz_update_option( 'compile_statistics_more_info', $value );
-				}
-			}
-
-			if ( strpos( $html, 'piwik.js' ) !== false || strpos( $html, 'matomo.js' ) !== false ) {
-				update_option( 'cmplz_detected_stats_type', true );
-				$pattern = '/(var u=")((https|http):\/\/.*?)"/i';
-				preg_match( $pattern, $html, $matches );
-				if ( $matches && isset( $matches[2] ) ) {
-					cmplz_update_option( 'matomo_url', sanitize_text_field( $matches[2] ) );
-					update_option( 'cmplz_detected_stats_data', true );
-				}
-
-				$pattern = '/\[\'setSiteId\', \'([0-9]){1,3}\'\]\)/i';
-				preg_match( $pattern, $html, $matches );
-				if ( $matches && isset( $matches[1] ) ) {
-					cmplz_update_option( 'matomo_site_id', intval( $matches[1] ) );
-					update_option( 'cmplz_detected_stats_data', true );
-				}
-
-				cmplz_update_option( 'compile_statistics', 'matomo' );
-			}
-
-			if ( strpos( $html, 'static.getclicky.com/js' ) !== false ) {
-				update_option( 'cmplz_detected_stats_type', true );
-
-				$pattern = '/clicky_site_ids\.push\(([0-9]{1,3})\)/i';
-				preg_match( $pattern, $html, $matches );
-				if ( $matches && isset( $matches[1] ) ) {
-					cmplz_update_option( 'clicky_site_id', intval( $matches[1] ) );
-					update_option( 'cmplz_detected_stats_data', true );
-					cmplz_update_option( 'compile_statistics', 'clicky' );
-				}
-			}
-
-			if ( strpos( $html, 'mc.yandex.ru/metrika/watch.js' ) !== false ) {
-				update_option( 'cmplz_detected_stats_type', true );
-
-				$pattern = '/w.yaCounter([0-9]{1,10}) = new/i';
-				preg_match( $pattern, $html, $matches );
-				if ( $matches && isset( $matches[1] ) ) {
-					cmplz_update_option( 'yandex_id', intval( $matches[1] ) );
-					update_option( 'cmplz_detected_stats_data', true );
-					cmplz_update_option( 'compile_statistics', 'yandex' );
-				}
-			}
 		}
 
 		/**
@@ -1074,6 +973,10 @@ if ( ! class_exists( 'cmplz_scan' ) ) {
 		 * post types via the cmplz_cookiescan_post_types filter before this fires.
 		 */
 		public function register_scan_post_columns(): void {
+			// Global opt-out. Defaults to enabled.
+			if ( ! cmplz_get_option( 'enable_scan_column' ) ) {
+				return;
+			}
 			foreach ( $this->get_scannable_post_types() as $post_type ) {
 				add_filter(
 					"manage_{$post_type}_posts_columns",
@@ -1191,11 +1094,12 @@ if ( ! class_exists( 'cmplz_scan' ) ) {
 		 * @return array<string, array>
 		 */
 		private function get_scan_upsell_catalog(): array {
+			$cmplz_is_new_install = cmplz_is_new_install();
+
 			$defaults = array(
 				'icon'        => 'warning',
 				'icon_color'  => 'orange',
 				'cta_label'   => __( 'Upgrade Now', 'complianz-gdpr' ),
-				'cta_url'     => 'https://complianz.io/pricing-subpages/',
 				'dismissible' => true,
 			);
 
@@ -1208,6 +1112,7 @@ if ( ! class_exists( 'cmplz_scan' ) ) {
 						'subtitle'     => __( 'Webshop pages not included', 'complianz-gdpr' ),
 						'body'         => __( 'Your webshop pages are not covered by the free Website Scan. Upgrade to cover all pages.', 'complianz-gdpr' ),
 						'cta_field_id' => 'scan-site-has-webshop',
+						'cta_url'      => 'https://complianz.io/pricing-subpages/',
 					)
 				),
 				'cpt'     => array_merge(
@@ -1218,6 +1123,7 @@ if ( ! class_exists( 'cmplz_scan' ) ) {
 						'subtitle'     => __( 'Custom post types not included', 'complianz-gdpr' ),
 						'body'         => __( 'You have custom post types that are not covered by the free Website Scan. Upgrade to cover all post types.', 'complianz-gdpr' ),
 						'cta_field_id' => 'scan-site-has-cpt',
+						'cta_url'      => 'https://complianz.io/pricing-subpages/',
 					)
 				),
 				'volume'  => array_merge(
@@ -1231,8 +1137,9 @@ if ( ! class_exists( 'cmplz_scan' ) ) {
 								: __( 'Limited scan coverage', 'complianz-gdpr' );
 						},
 						'subtitle'       => __( "The free Website Scan can't fully cover your site.", 'complianz-gdpr' ),
-						'body'           => __( 'Your free plan covers only 50 posts. Upgrade to scan your full site and automatically keep your cookie policy up to date with live cookiedatabase.org sync, avoid manual configuration and lower compliance risks.', 'complianz-gdpr' ),
+						'body'           => $cmplz_is_new_install ? __( 'Your free plan covers only 50 posts. Upgrade to scan your full site and automatically keep your cookie policy up to date with live cookiedatabase.org sync, avoid manual configuration and lower compliance risks.', 'complianz-gdpr' ) : __( 'Your free plan covers only 50 posts. Upgrade to scan your full site and automatically keep your cookie policy up to date with live cookiedatabase.org sync, avoid manual configuration and lower compliance risks. Get 40% OFF with code SC4N1T4LL. Limited Offer, Get it Now!', 'complianz-gdpr' ),
 						'cta_field_id'   => 'scan-site-has-volume',
+						'cta_url'        => $cmplz_is_new_install ? 'https://complianz.io/pricing/' : 'https://complianz.io/pricing-subpages/',
 					)
 				),
 			);

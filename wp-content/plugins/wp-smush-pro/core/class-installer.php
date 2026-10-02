@@ -73,13 +73,13 @@ class Installer {
 			return;
 		}
 
-		// Don't redirect on AJAX, CLI, or network admin.
-		if ( wp_doing_ajax() || ( defined( 'WP_CLI' ) && WP_CLI ) || is_network_admin() ) {
+		// Don't redirect on AJAX, CLI, REST API, or network admin.
+		if ( wp_doing_ajax() || ( defined( 'WP_CLI' ) && WP_CLI ) || wp_is_serving_rest_request() ) {
 			return;
 		}
 
 		// Redirect to Smush page.
-		wp_safe_redirect( admin_url( 'admin.php?page=smush' ) );
+		wp_safe_redirect( is_network_admin() ? network_admin_url( 'admin.php?page=smush' ) : admin_url( 'admin.php?page=smush' ) );
 		exit;
 	}
 
@@ -202,6 +202,22 @@ class Installer {
 
 			if ( version_compare( $version, '4.0', '<' ) ) {
 				self::upgrade_4_0_0();
+			}
+
+			if ( version_compare( $version, '4.2.0', '<' ) ) {
+				self::upgrade_4_2_0();
+			}
+
+			if ( version_compare( $version, '4.2.1', '<' ) ) {
+				self::upgrade_4_2_1();
+			}
+
+			if ( version_compare( $version, '4.3.2', '<' ) ) {
+				self::upgrade_4_3_2();
+			}
+
+			if ( version_compare( $version, '4.0', '>=' ) && version_compare( $version, '4.3.3', '<' ) ) {
+				self::dismiss_autosave_intro_for_existing_v4_users();
 			}
 
 			if ( version_compare( $version, '4.0', '<' ) ) {
@@ -357,6 +373,162 @@ class Installer {
 	}
 
 	/**
+	 * Upgrade to 4.2.0
+	 *
+	 * Migrates options that moved from PHP-serialized arrays / comma-separated
+	 * strings to raw JSON strings so that the new JSON_Record / JSON_Scalar_Array
+	 * classes can read them without a full reset.
+	 *
+	 * @return void
+	 * @since 4.2.0
+	 */
+	private static function upgrade_4_2_0() {
+		// Global_Stats option: PHP-serialized array → JSON object.
+		self::migrate_serialized_option_to_json( 'wp_smush_global_stats', 'wp_smush_global_stats_json' );
+
+		// Attachment_Id_List options: comma-separated string → JSON array.
+		$attachment_id_list_options = array(
+			'wp-smush-optimize-list',
+			'wp-smush-reoptimize-list',
+			'wp-smush-error-items-list',
+			'wp-smush-ignored-items-list',
+			'wp-smush-animated-items-list',
+		);
+		foreach ( $attachment_id_list_options as $option_id ) {
+			self::migrate_comma_separated_option_to_json_array( $option_id, $option_id . '-json' );
+		}
+	}
+
+	/**
+	 * Upgrade to 4.2.1
+	 *
+	 * Migrate video thumbnail cache to a bounded JSON_Record-based
+	 * implementation.
+	 *
+	 * @since 4.2.1
+	 *
+	 * @return void
+	 */
+	private static function upgrade_4_2_1() {
+		if ( wp_using_ext_object_cache() ) {
+			wp_cache_flush(); // Clear the object cache to avoid stale data.
+			return;
+		}
+
+		if ( is_multisite() ) {
+			self::for_each_public_site( function() {
+				self::flush_video_thumbnail_cache();
+			} );
+		} else {
+			self::flush_video_thumbnail_cache();
+		}
+	}
+
+	/**
+	 * Flush cached video thumbnails and their cache index.
+	 *
+	 * @since 4.2.1
+	 *
+	 * @return void
+	 */
+	private static function flush_video_thumbnail_cache() {
+		global $wpdb;
+
+		$pattern = $wpdb->esc_like(
+			'_transient_wp-smush-video-thumbnail-'
+		) . '%';
+
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->options}
+				WHERE option_name LIKE %s",
+				$pattern
+			)
+		);
+
+		delete_option( 'wp-smush-video-thumbnail-cache-index' );
+
+		/*
+		* The direct database query bypasses the WordPress options API.
+		*/
+		wp_cache_delete( 'alloptions', 'options' );
+	}
+
+	private static function upgrade_4_3_2() {
+		if ( is_multisite() ) {
+			self::for_each_public_site( function() {
+				self::delete_transparent_metadata();
+			} );
+		} else {
+			self::delete_transparent_metadata();
+		}
+	}
+
+	private static function delete_transparent_metadata() {
+		$transparent_meta_value = 1;
+		$delete_all             = true;
+		delete_metadata( 'post', null, 'wp-smush-transparent', $transparent_meta_value, $delete_all );
+	}
+
+	/**
+	 * Read an option whose value was written by update_option() as a
+	 * PHP-serialized array and re-save it as a raw JSON string.
+	 *
+	 * @param string $option_id WP option name.
+	 * @param $new_option_id
+	 *
+	 * @return void
+	 */
+	private static function migrate_serialized_option_to_json( $option_id, $new_option_id ) {
+		$value = get_option( $option_id, null );
+		// get_option() calls maybe_unserialize; PHP-serialized array → array.
+		if ( null === $value || ! is_array( $value ) ) {
+			return;
+		}
+		update_option( $new_option_id, wp_json_encode( $value ), false );
+	}
+
+	/**
+	 * Read an option whose value was written as a comma-separated string of
+	 * attachment IDs (e.g. "123,456,789") and re-save it as a JSON array
+	 * (e.g. [123,456,789]) so that JSON_Scalar_Array can read it.
+	 *
+	 * @param string $option_id WP option name.
+	 * @param $new_option_id
+	 *
+	 * @return void
+	 */
+	private static function migrate_comma_separated_option_to_json_array( $option_id, $new_option_id ) {
+		$value = get_option( $option_id, null );
+		if ( null === $value ) {
+			return;
+		}
+
+		// If get_option() already returned an array (e.g. PHP-serialized), encode directly.
+		if ( is_array( $value ) ) {
+			$ids = array_values( array_map( 'intval', $value ) );
+			update_option( $new_option_id, wp_json_encode( $ids ), false );
+			return;
+		}
+
+		$str = (string) $value;
+
+		// Skip if value is already a valid JSON array.
+		if ( '' !== $str && '[' === $str[0] ) {
+			return;
+		}
+
+		if ( '' === trim( $str ) ) {
+			update_option( $new_option_id, '[]', false );
+			return;
+		}
+
+		// Convert "123,456,789" → [123,456,789].
+		$ids = array_values( array_filter( array_map( 'intval', explode( ',', $str ) ) ) );
+		update_option( $new_option_id, wp_json_encode( $ids ), false );
+	}
+
+	/**
 	 * Migrate lazy load placeholder settings.
 	 *
 	 * @param array $lazy_options Lazy load options.
@@ -436,7 +608,7 @@ class Installer {
 
 		$configs_handler = Configs::get_instance();
 		$new_settings    = array(
-			'background_email' => false,
+			'background_email' => true,
 		);
 		foreach ( $stored_configs as $key => $preset_config ) {
 			if ( empty( $preset_config['config']['configs']['settings'] ) ) {
@@ -524,6 +696,44 @@ class Installer {
 		self::for_each_public_site( function() {
 			add_option( 'wp-smush-show-new-feature-hotspot', true );
 		} );
+	}
+
+	/**
+	 * Dismiss autosave intro for users already on v4 before this feature lands.
+	 *
+	 * @return void
+	 */
+	private static function dismiss_autosave_intro_for_existing_v4_users() {
+		if ( is_multisite() ) {
+			self::for_each_public_site(
+				function () {
+					self::set_dismissed_notice( 'autosave_intro_v4' );
+				}
+			);
+			return;
+		}
+
+		self::set_dismissed_notice( 'autosave_intro_v4' );
+	}
+
+	/**
+	 * Mark a notice as dismissed in the existing dismissed notices option.
+	 *
+	 * @param string $notice_key Notice key.
+	 *
+	 * @return void
+	 */
+	private static function set_dismissed_notice( $notice_key ) {
+		$option_id         = 'wp-smush-dismissed-notices';
+		$dismissed_notices = get_option( $option_id, array() );
+		$dismissed_notices = is_array( $dismissed_notices ) ? $dismissed_notices : array();
+
+		if ( ! empty( $dismissed_notices[ $notice_key ] ) ) {
+			return;
+		}
+
+		$dismissed_notices[ $notice_key ] = true;
+		update_option( $option_id, $dismissed_notices );
 	}
 
 	private static function for_each_public_site( $callback ) {

@@ -19,4 +19,8 @@ if (PHP_VERSION_ID < 50600) {
 
 require_once __DIR__ . '/composer/autoload_real.php';
 
+<<<<<<<< HEAD:wp-content/plugins/wp-rollback/vendor/autoload.php
 return ComposerAutoloaderInitf283cce0b01ea6f743b52e6aea01561f::getLoader();
+========
+return ComposerAutoloaderInitWPMUDEVHubConnectorVendor::getLoader();
+>>>>>>>> update/plugin-updates:wp-content/plugins/wp-smush-pro/core/external/hub-connector/lib/vendor/autoload.php
