@@ -43,7 +43,10 @@ if (!function_exists('fn_base64')) {
     function fn_base64($v, $encode = TRUE) { return is_array($v) ? implode('~', $v) : $v; }
 }
 if (!function_exists('fn_href')) {
-    function fn_href($text, $url, $query = [], $opts = []) { return "<a href='#'>{$text}</a>"; }
+    function fn_href($text, $url, $query = [], $opts = []) {
+        $GLOBALS['fn_href_calls'][] = ['text' => $text, 'query' => $query, 'opts' => $opts];
+        return "<a href='#'>{$text}</a>";
+    }
 }
 
 // ── Stub: minimal database base class (classes/search.php extends this) ────
@@ -542,6 +545,56 @@ class CatalogTest extends TestCase
         $this->assertStringContainsString("<a href='#'><span class='subcat20'>", $html);
         $this->assertStringNotContainsString('catalog_blocked_link', $html);
         $this->assertStringContainsString('Antivirus', $html);
+    }
+
+    // ── default_unit_type() / output_unit_filter(): country default ──────
+
+    /** @runInSeparateProcess @preserveGlobalState disabled */
+    public function test_default_unit_type_is_unfiltered_for_us_users(): void {
+        $obj = $this->bareCatalogInstance();
+        $_SESSION['user'] = $this->defaultSessionUser(['country_code' => 'US']);
+        $this->assertSame('', $obj->default_unit_type());
+    }
+
+    /** @runInSeparateProcess @preserveGlobalState disabled */
+    public function test_default_unit_type_is_metric_outside_the_us(): void {
+        $obj = $this->bareCatalogInstance();
+        $_SESSION['user'] = $this->defaultSessionUser(['country_code' => 'fr ']);
+        $this->assertSame('metric', $obj->default_unit_type());
+    }
+
+    /** @runInSeparateProcess @preserveGlobalState disabled */
+    public function test_default_unit_type_is_unfiltered_without_a_country(): void {
+        $obj = $this->bareCatalogInstance();
+        $_SESSION['user'] = $this->defaultSessionUser(['country_code' => null]);
+        $this->assertSame('', $obj->default_unit_type());
+    }
+
+    /** @runInSeparateProcess @preserveGlobalState disabled */
+    public function test_default_unit_type_is_unfiltered_for_bots(): void {
+        $obj = $this->bareCatalogInstance();
+        $_SESSION['user'] = $this->defaultSessionUser(['country_code' => 'DE', 'bot_code' => 'crawler']);
+        $this->assertSame('', $obj->default_unit_type());
+    }
+
+    /** @runInSeparateProcess @preserveGlobalState disabled */
+    public function test_output_unit_filter_all_pill_carries_explicit_unit_type(): void {
+        // Without an explicit value, clicking "All" would fall back to the
+        // country default and a non-US user could never see everything.
+        $obj = $this->bareCatalogInstance();
+        $_SESSION['user'] = $this->defaultSessionUser(['country_code' => 'FR']);
+        $obj->php_self    = '/catalog.php';
+        $obj->search_code = '';
+        $obj->new_date    = 0;
+        $obj->unit_type   = '';
+
+        $GLOBALS['fn_href_calls'] = [];
+        $obj->output_unit_filter();
+        $pills = array_column($GLOBALS['fn_href_calls'], null, 'text');
+
+        $this->assertSame('all', $pills['All']['query']['unit_type']);
+        $this->assertSame('catalog_unit_filter_pill active', $pills['All']['opts']['class']);
+        $this->assertSame('metric', $pills['Metric']['query']['unit_type']);
     }
 
     // ── output_summary(): unit_type (metric/imperial) filter ────────────
