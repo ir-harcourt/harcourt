@@ -607,6 +607,9 @@ class catalog_output_class {
             print $this->portal->summary();
             print "<h1>Standard Products</h1>";
         }
+        // Country default only applies here, where the pills are shown; search
+        // results also go through output_summary() but have no way to undo it.
+        if (!strlen($this->request['unit_type'])) $this->unit_type=$this->default_unit_type();
         print $this->output_unit_filter();
 	    $query_where=array();
 	    $query_where[]=new query_where("category.active","=",1);
@@ -656,6 +659,13 @@ class catalog_output_class {
         $this->output_summary($summary_list);
 		print "</div> <!-- products_summary -->";
     }
+    function default_unit_type() {
+        // Users outside the US land on Metric. Bots and users with no country
+        // stay unfiltered so nothing is hidden from them by default.
+        if (isset($_SESSION['user']->bot_code)) return "";
+        $country_code=strtoupper(trim($_SESSION['user']->country_code));
+        return (strlen($country_code) && ($country_code != "US")) ? "metric" : "";
+    }
     function output_unit_filter() {
     	$this->trace[]=__FUNCTION__;
         $url_query=array();
@@ -669,7 +679,8 @@ class catalog_output_class {
         $results[]="<span class='catalog_unit_filter_label nobr'>Show:</span>";
         foreach ($unit_type_options as $value => $label) {
             $pill_query=$url_query;
-            if (strlen($value)) $pill_query['unit_type']=$value;
+            // "All" must be explicit, otherwise default_unit_type() re-applies.
+            $pill_query['unit_type']=strlen($value) ? $value : "all";
             $class="catalog_unit_filter_pill" . (($value == $this->unit_type) ? " active" : "");
             $results[]=fn_href($label,$this->php_self,$pill_query,array("class"=>$class));
         }
